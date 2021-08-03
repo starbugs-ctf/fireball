@@ -14,4 +14,7 @@ lint:
 typecheck:
 	mypy fireball
 
-.PHONY: dev format lint typecheck
+test:
+	pytest
+
+.PHONY: dev format lint typecheck test

@@ -12,3 +12,5 @@ DOCKER_SOCKET: str = (
 # URL of the main dashboard
 # WEBSERV_URL: str = os.environ["FIREBALL_WEBSERV_URL"]
 WEBSERV_URL: str = ""
+
+EXPLOIT_REPO_PATH: str = "../exploits-testing"

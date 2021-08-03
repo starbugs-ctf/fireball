@@ -1,0 +1,2 @@
+class RepoScanError(Exception):
+    pass

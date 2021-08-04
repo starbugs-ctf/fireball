@@ -14,3 +14,4 @@ DOCKER_SOCKET: str = (
 WEBSERV_URL: str = ""
 
 EXPLOIT_REPO_PATH: str = "../exploits-testing"
+EXPLOIT_REPO_INITIAL_HASH: str = "be8821762fad9d6401467b5a896d16c129b3c66f"

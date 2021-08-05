@@ -91,8 +91,8 @@ class Runtime:
                 async with session.delete(
                     WEBSERV_URL + "/api/exploits",
                     data={
-                        name: exploit_name,
-                        problemId: self.problems[chal_name].id,
+                        "name": exploit_name,
+                        "problemId": self.problems[chal_name].id,
                     },
                 ) as response:
                     logger.debug(f"Web server response: {response.status}")
@@ -115,9 +115,9 @@ class Runtime:
                 async with session.post(
                     WEBSERV_URL + "/api/exploits",
                     data={
-                        name: exploit_name,
-                        key: exploit.docker_image_hash,
-                        problemId: self.problems[chal_name].id,
+                        "name": exploit_name,
+                        "key": exploit.docker_image_hash,
+                        "problemId": self.problems[chal_name].id,
                     },
                 ) as response:
                     logger.debug(f"Web server response: {response.status}")

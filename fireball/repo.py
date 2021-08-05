@@ -74,7 +74,6 @@ async def git_get_hash(path: Path) -> str:
     return stdout.decode().strip()
 
 
-# e.g. "test-problem/test-exploit-2"
 async def git_changed_exploits(path: Path, from_hash: str) -> Set[PurePosixPath]:
     proc = await asyncio.create_subprocess_exec(
         "git",
@@ -99,13 +98,14 @@ async def git_changed_exploits(path: Path, from_hash: str) -> Set[PurePosixPath]
             continue
 
         status, path_str = line.split()
-        path = PurePosixPath(rel_path)
+        rel_path = PurePosixPath(path_str)
 
-        if len(path.parts) < 3:
+        if len(rel_path.parts) < 3:
             # it is a change outside exploit folders
             continue
 
-        result.add(path.parts[:2])
+        # e.g. "test-problem/test-exploit-2"
+        result.add(PurePosixPath(*rel_path.parts[:2]))
 
     return result
 
@@ -142,7 +142,7 @@ class Repo:
         updated_exploits = set()
         removed_exploits = set()
 
-        for path in changes:
+        for exploit_dir in changes:
             full_path = self.path / exploit_dir
 
             if full_path.exists():

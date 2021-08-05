@@ -4,7 +4,7 @@ from .db import database
 from .runtime import Runtime
 from .docker import Docker
 from .repo import Repo
-from .config import DOCKER_SOCKET, EXPLOIT_REPO_INITIAL_HASH, EXPLOIT_REPO_PATH
+from .config import DOCKER_SOCKET, EXPLOIT_REPO_PATH
 
 app = FastAPI()
 

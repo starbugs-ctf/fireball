@@ -1,6 +1,6 @@
 from pathlib import Path, PurePosixPath
 from dataclasses import dataclass
-from typing import Optional, List, NamedTuple
+from typing import Optional, List, NamedTuple, Set
 import asyncio
 import logging
 
@@ -74,12 +74,8 @@ async def git_get_hash(path: Path) -> str:
     return stdout.decode().strip()
 
 
-class Change(NamedTuple):
-    status: str
-    rel_path: PurePosixPath
-
-
-async def git_diff_paths(path: Path, from_hash: str) -> List[Change]:
+# e.g. "test-problem/test-exploit-2"
+async def git_changed_exploits(path: Path, from_hash: str) -> Set[PurePosixPath]:
     proc = await asyncio.create_subprocess_exec(
         "git",
         "diff",
@@ -96,14 +92,20 @@ async def git_diff_paths(path: Path, from_hash: str) -> List[Change]:
         log_failed_process("Failed to diff repo", stdout, stderr)
         raise RepoScanError("Failed to diff repo")
 
-    result = []
+    result = set()
     lines = stdout.decode().strip().split("\n")
     for line in lines:
         if line == "":
             continue
 
-        status, rel_path = line.split()
-        result.append(Change(status, PurePosixPath(rel_path)))
+        status, path_str = line.split()
+        path = PurePosixPath(rel_path)
+
+        if len(path.parts) < 3:
+            # it is a change outside exploit folders
+            continue
+
+        result.add(path.parts[:2])
 
     return result
 
@@ -136,30 +138,19 @@ class Repo:
             # no new commits
             return None
 
-        changes = await git_diff_paths(self.path, self.last_processed_hash)
-
+        changes = await git_changed_exploits(self.path, self.last_processed_hash)
         updated_exploits = set()
         removed_exploits = set()
 
-        for status, path in changes:
-            if len(path.parts) < 3:
-                # it is a change outside exploit folders
-                continue
+        for path in changes:
+            full_path = self.path / exploit_dir
 
-            # e.g. "test-problem/test-exploit-2"
-            exploit_dir = Path(*path.parts[:2])
-
-            if status == "D":
-                # something was deleted
-                full_path = self.path / exploit_dir
-
-                if not full_path.exists():
-                    # that exploit directory was deleted
-                    removed_exploits.add(exploit_dir)
-
-            else:
+            if full_path.exists():
                 # something was modified
                 updated_exploits.add(exploit_dir)
+            else:
+                # that exploit directory was deleted
+                removed_exploits.add(exploit_dir)
 
         self.last_processed_hash = new_hash
 

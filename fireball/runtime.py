@@ -58,16 +58,16 @@ class Runtime:
         async with aiohttp.ClientSession() as session:
             async with session.get(WEBSERV_URL + "/api/teams") as response:
                 self.teams.clear()
-                print("=== Teams ===")
+                logger.info("=== Teams ===")
                 for team in await response.json():
-                    print(team)
+                    logger.info(team)
                     self.teams[team["slug"]] = Team(**team)
 
             async with session.get(WEBSERV_URL + "/api/problems") as response:
                 self.problems.clear()
-                print("=== Problems ===")
+                logger.info("=== Problems ===")
                 for problem in await response.json():
-                    print(problem)
+                    logger.info(problem)
                     self.problems[problem["slug"]] = Problem(**problem)
 
     async def game_tick(self) -> None:
@@ -80,22 +80,45 @@ class Runtime:
         if result is None:
             return
 
-        for path in result.removed_exploits:
-            chal_name = path.parts[0]
-            exploit_name = path.parts[1]
-            exploit_id = f"{chal_name}:{exploit_name}"
-            del self.exploits[exploit_id]
+        async with aiohttp.ClientSession() as session:
+            for path in result.removed_exploits:
+                chal_name = path.parts[0]
+                exploit_name = path.parts[1]
+                exploit_id = f"{chal_name}:{exploit_name}"
+                logger.info(f"Deleting exploit {exploit_id}")
 
-        for path in result.updated_exploits:
-            chal_name = path.parts[0]
-            exploit_name = path.parts[1]
-            exploit_id = f"{chal_name}:{exploit_name}"
+                del self.exploits[exploit_id]
+                async with session.delete(
+                    WEBSERV_URL + "/api/exploits",
+                    data={
+                        name: exploit_name,
+                        problemId: self.problems[chal_name].id,
+                    },
+                ) as response:
+                    logger.debug(f"Web server response: {response.status}")
 
-            try:
-                exploit = await Exploit.from_path(
-                    self, self.repo.path / path, exploit_name, chal_name
-                )
-                self.exploits[exploit_id] = exploit
-            except Exception as e:
-                # TODO: proper logging
-                logger.error("%s", e)
+            for path in result.updated_exploits:
+                chal_name = path.parts[0]
+                exploit_name = path.parts[1]
+                exploit_id = f"{chal_name}:{exploit_name}"
+                logger.info(f"Updating exploit {exploit_id}")
+
+                try:
+                    exploit = await Exploit.from_path(
+                        self, self.repo.path / path, exploit_name, chal_name
+                    )
+                    self.exploits[exploit_id] = exploit
+                except Exception as e:
+                    # TODO: proper logging
+                    logger.error("%s", e)
+
+                async with session.post(
+                    WEBSERV_URL + "/api/exploits",
+                    data={
+                        name: exploit_name,
+                        key: exploit.docker_image_hash,
+                        problemId: self.problems[chal_name].id,
+                    },
+                ) as response:
+                    logger.debug(f"Web server response: {response.status}")
+                    logger.debug(await response.json())

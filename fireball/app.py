@@ -37,6 +37,7 @@ async def runtime_refresh():
     return {"status": "ok"}
 
 
+# TODO: caller should provide round ID
 @app.post("/tick")
 async def new_tick(background_tasks: BackgroundTasks):
     """Triggers new tick"""

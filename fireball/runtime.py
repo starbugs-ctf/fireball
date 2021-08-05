@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from typing import Dict
+import asyncio
 
 import aiohttp
 
@@ -8,6 +9,7 @@ from .config import WEBSERV_URL
 from .docker import Docker
 from .exploit import Exploit
 from .repo import Repo
+from .task import Task
 
 logger = logging.getLogger(__name__)
 
@@ -52,12 +54,54 @@ class Runtime:
         self.teams = {}
         self.problems = {}
 
+        self.main_loop_lock = asyncio.Lock()
+
     async def connect(self) -> None:
         await self.repo.connect()
         await self.refresh()
 
     async def disconnect(self) -> None:
         pass
+
+    async def main_loop(self):
+        while True:
+            async with self.main_loop_lock:
+                containers = self.docker.get_managed_containers()
+                tasks = []
+
+                for container in containers:
+                    try:
+                        exploit_id = container["Config"]["Labels"][
+                            "fireball.exploit_id"
+                        ]
+                    except KeyError:
+                        logger.warning(
+                            "Found a managed container without exploit_id: %s",
+                            container.id,
+                        )
+                        continue
+
+                    if exploit_id not in self.exploits:
+                        logger.warning("Couldn't find exploit with id:", exploit_id)
+                        continue
+
+                    exploit = self.exploits[exploit_id]
+                    tasks.append(Task(exploit, container))
+
+                statuses = await asyncio.gather(
+                    *[task.status() for task in tasks], return_exceptions=True
+                )
+
+                for status, task in zip(statuses, tasks):
+                    if isinstance(status, Exception):
+                        logger.error(
+                            "An error occured while querying status of %s task: %s",
+                            task.id,
+                            status,
+                        )
+                        continue
+
+                    # TODO: send status to siren
 
     async def refresh(self) -> None:
         async with aiohttp.ClientSession() as session:

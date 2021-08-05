@@ -62,6 +62,10 @@ class Task:
         self.exploit = exploit
         self.container = container
 
+    @property
+    def id(self):
+        return self.container.id
+
     async def status(self):
         # https://docs.docker.com/engine/api/v1.41/#operation/ContainerInspect
         stats = await self.container.show()

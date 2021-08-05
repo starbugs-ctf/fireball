@@ -10,26 +10,9 @@ from .docker import Docker
 from .exploit import Exploit
 from .repo import Repo
 from .task import Task
-from .siren import SirenAPI
+from .siren import SirenAPI, Team, Problem
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Team:
-    id: int
-    name: str
-    slug: str
-    aux: str
-
-
-@dataclass
-class Problem:
-    id: int
-    enabled: bool
-    name: str
-    slug: str
-    aux: str
 
 
 class Runtime:
@@ -113,20 +96,17 @@ class Runtime:
             await asyncio.sleep(self.docker_poll_interval)
 
     async def refresh(self) -> None:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(WEBSERV_URL + "/api/teams") as response:
-                self.teams.clear()
-                logger.info("=== Teams ===")
-                for team in await response.json():
-                    logger.info(team)
-                    self.teams[team["slug"]] = Team(**team)
+        self.teams.clear()
+        logger.info("=== Teams ===")
+        for team in await self.siren.teams():
+            logger.info(team)
+            self.teams[team.slug] = team
 
-            async with session.get(WEBSERV_URL + "/api/problems") as response:
-                self.problems.clear()
-                logger.info("=== Problems ===")
-                for problem in await response.json():
-                    logger.info(problem)
-                    self.problems[problem["slug"]] = Problem(**problem)
+        self.problems.clear()
+        logger.info("=== Problem ===")
+        for problem in await self.siren.problems():
+            logger.info(problem)
+            self.problems[problem.slug] = problem
 
     async def game_tick(self, round_id: int) -> None:
         self.current_round = round_id
@@ -142,51 +122,42 @@ class Runtime:
 
         # Be careful! The term "exploit ID" refers to different things
         # on the web server and the task runner
-        async with aiohttp.ClientSession() as session:
-            for path in result.removed_exploits:
-                chal_name = path.parts[0]
-                exploit_name = path.parts[1]
-                exploit_id = f"{chal_name}:{exploit_name}"
-                logger.info(f"Deleting exploit {exploit_id}")
 
-                del self.exploits[exploit_id]
-                async with session.delete(
-                    WEBSERV_URL + "/api/exploits",
-                    data={
-                        "name": exploit_name,
-                        "problemId": self.problems[chal_name].id,
-                    },
-                ) as response:
-                    logger.debug(f"Web server response: {response.status}")
+        for path in result.removed_exploits:
+            chal_name = path.parts[0]
+            exploit_name = path.parts[1]
+            exploit_id = f"{chal_name}:{exploit_name}"
+            logger.info(f"Deleting exploit {exploit_id}")
 
-            for path in result.updated_exploits:
-                chal_name = path.parts[0]
-                exploit_name = path.parts[1]
-                exploit_id = f"{chal_name}:{exploit_name}"
-                logger.info(f"Updating exploit {exploit_id}")
+            del self.exploits[exploit_id]
 
-                try:
-                    exploit = await Exploit.from_path(
-                        self, self.repo.path / path, exploit_name, chal_name
-                    )
-                    self.exploits[exploit_id] = exploit
-                except Exception as e:
-                    # TODO: proper logging
-                    logger.error("%s", e)
+            delete_exploits_result = await self.siren.delete_exploits(
+                exploit_name, self.problems[chal_name].id
+            )
+            logger.debug(f"Deleted exploits: {delete_exploits_result}")
 
-                async with session.post(
-                    WEBSERV_URL + "/api/exploits",
-                    data={
-                        "name": exploit_name,
-                        "key": exploit.docker_image_hash,
-                        "problemId": self.problems[chal_name].id,
-                    },
-                ) as response:
-                    logger.debug(f"Web server response: {response.status}")
-                    logger.debug(await response.json())
+        for path in result.updated_exploits:
+            chal_name = path.parts[0]
+            exploit_name = path.parts[1]
+            exploit_id = f"{chal_name}:{exploit_name}"
+            logger.info(f"Updating exploit {exploit_id}")
 
-                # Run the updated exploit
-                self.start_exploit(exploit_id)
+            try:
+                exploit = await Exploit.from_path(
+                    self, self.repo.path / path, exploit_name, chal_name
+                )
+                self.exploits[exploit_id] = exploit
+            except Exception as e:
+                # TODO: proper logging
+                logger.error("%s", e)
+
+            new_exploit = await self.siren.create_exploit(
+                exploit_name, exploit.docker_image_hash, self.problems[chal_name].id
+            )
+            logger.debug(f"Created exploits: {new_exploit}")
+
+            # Run the updated exploit
+            self.start_exploit(exploit_id)
 
     async def start_exploit(self, exploit_id: str) -> None:
         if self.current_round < 0:
@@ -195,39 +166,30 @@ class Runtime:
 
         logger.info(f"Running exploit {exploit_id}")
 
-        async with aiohttp.ClientSession() as session:
-            exploit = self.exploits[exploit_id]
-            if exploit.enabled:
-                for team in self.teams.values():
-                    if team not in exploit.ignore_teams:
-                        logger.debug(f"Running exploit {exploit_id} against team {team.name}")
+        exploit = self.exploits[exploit_id]
+        if exploit.enabled:
+            for team in self.teams.values():
+                if team.slug not in exploit.ignore_teams:
+                    logger.debug(
+                        f"Running exploit {exploit_id} against team {team.name}"
+                    )
 
-                        async with session.post(
-                            WEBSERV_URL + "/api/endpoint",
-                            data={
-                                "teamId": team.id,
-                                "problemId": self.problems[exploit.chal_name].id,
-                            },
-                        ) as response:
-                            endpoint = await response.json()
+                    endpoint = await self.siren.endpoint(
+                        team.id, self.problems[exploit.chal_name].id
+                    )
 
-                        async with session.post(
-                            WEBSERV_URL + "/api/tasks",
-                            data={
-                                "roundId": self.current_round,
-                                "exploitKey": exploit.docker_image_hash,
-                                "teamId": team.id,
-                            },
-                        ) as response:
-                            task = await response.json()
-                            self.docker.create_container(
-                                exploit.docker_image_hash,
-                                {
-                                    "HOST": endpoint["host"],
-                                    "PORT": endpoint["port"],
-                                },
-                                {
-                                    "fireball.exploit_id": exploit.id,
-                                    "fireball.task_id": task["id"],
-                                },
-                            )
+                    task = await self.siren.create_task(
+                        self.current_round, exploit.docker_image_hash, team.id
+                    )
+
+                    self.docker.create_container(
+                        exploit.docker_image_hash,
+                        {
+                            "HOST": endpoint.host,
+                            "PORT": endpoint.port,
+                        },
+                        {
+                            "fireball.exploit_id": exploit_id,
+                            "fireball.task_id": task["id"],
+                        },
+                    )

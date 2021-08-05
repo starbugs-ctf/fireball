@@ -34,6 +34,8 @@ class Runtime:
     docker: Docker
     exploits: Dict[str, Exploit]
 
+    current_round: int
+
     # team slug -> team
     teams: Dict[str, Team]
 
@@ -44,6 +46,8 @@ class Runtime:
         self.repo = repo
         self.docker = docker
         self.exploits = {}
+
+        self.current_round = -1
 
         self.teams = {}
         self.problems = {}
@@ -72,7 +76,7 @@ class Runtime:
                     self.problems[problem["slug"]] = Problem(**problem)
 
     async def game_tick(self) -> None:
-        # TODO
+        # TODO: update self.current_round
         print("tick")
         raise NotImplementedError
 
@@ -81,6 +85,8 @@ class Runtime:
         if result is None:
             return
 
+        # Be careful! The term "exploit ID" refers to different things
+        # on the web server and the task runner
         async with aiohttp.ClientSession() as session:
             for path in result.removed_exploits:
                 chal_name = path.parts[0]
@@ -123,3 +129,46 @@ class Runtime:
                 ) as response:
                     logger.debug(f"Web server response: {response.status}")
                     logger.debug(await response.json())
+
+                # Run the updated exploit
+                self.start_exploit(exploit_id)
+
+    async def start_exploit(self, exploit_id: str) -> None:
+        if self.current_round < 0:
+            # Skip if the contest is not running right now
+            pass
+
+        async with aiohttp.ClientSession() as session:
+            exploit = self.exploits[exploit_id]
+            if exploit.enabled:
+                for team in self.teams.values():
+                    if team not in exploit.ignore_teams:
+                        async with session.post(
+                            WEBSERV_URL + "/api/endpoint",
+                            data={
+                                "teamId": team.id,
+                                "problemId": self.problems[exploit.chal_name].id,
+                            },
+                        ) as response:
+                            endpoint = await response.json()
+
+                        async with session.post(
+                            WEBSERV_URL + "/api/tasks",
+                            data={
+                                "roundId": self.current_round,
+                                "exploitKey": exploit.docker_image_hash,
+                                "teamId": team.id,
+                            },
+                        ) as response:
+                            task = await response.json()
+                            self.docker.create_container(
+                                exploit.docker_image_hash,
+                                {
+                                    "HOST": endpoint["host"],
+                                    "PORT": endpoint["port"],
+                                },
+                                {
+                                    "fireball.exploit_id": exploit.id,
+                                    "fireball.task_id": task["id"],
+                                },
+                            )

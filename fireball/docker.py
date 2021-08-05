@@ -59,7 +59,7 @@ class Docker:
 
         return image_hash
 
-    async def run_image(
+    async def create_container(
         self, image_hash: str, env: Dict[str, str], labels: Dict[str, str]
     ) -> str:
         env_list = [f"{key}={value}" for key, value in env.items()]

@@ -1,10 +1,11 @@
+import json
+import os
+from pathlib import Path
+from typing import Any, Dict, List, Optional, cast
+
 import aiodocker
 from aiodocker.containers import DockerContainer
-from pathlib import Path
-import os
 from docker.utils.build import tar
-import json
-from typing import List, Dict, Any, cast, Optional
 
 from .exceptions import DockerBuildError
 

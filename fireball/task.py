@@ -1,14 +1,15 @@
-from pydantic.dataclasses import dataclass
-from typing import Dict, List, Any, Optional, Tuple
 import json
+import logging
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import dateutil
 import toml
 from aiodocker import Docker
 from aiodocker.containers import DockerContainer
 from aiodocker.exceptions import DockerError
-import dateutil
-import logging
-from datetime import datetime, timedelta
+from pydantic.dataclasses import dataclass
 
 from .exploit import Exploit
 
@@ -66,34 +67,23 @@ class Task:
         stats = await self.container.show()
         stdout, stderr = await get_logs(self.container)
 
-        status = stats['State']['Status']
+        status = stats["State"]["Status"]
 
         if status == "running":
-            if is_over_timeout(stats['State']['StartedAt'], self.exploit.timeout):
+            if is_over_timeout(stats["State"]["StartedAt"], self.exploit.timeout):
                 await self.container.delete()
-                return TaskStatus(
-                    status="TIMEOUT",
-                    stdout=stdout,
-                    stderr=stderr
-                )
+                return TaskStatus(status="TIMEOUT", stdout=stdout, stderr=stderr)
             else:
-                return TaskStatus(
-                    status="RUNNING",
-                    stdout=stdout,
-                    stderr=stderr
-                )
+                return TaskStatus(status="RUNNING", stdout=stdout, stderr=stderr)
 
         elif status == "exited":
-            exit_code = stats['State']['ExitCode']
+            exit_code = stats["State"]["ExitCode"]
 
             if exit_code == 0:
                 flag = await extract_flag(self.container)
                 await self.container.delete()
                 return TaskStatus(
-                    status="OKAY",
-                    stdout=stdout,
-                    stderr=stderr,
-                    flag=flag
+                    status="OKAY", stdout=stdout, stderr=stderr, flag=flag
                 )
             else:
                 # Not removing the container on purpose here to ease debugging

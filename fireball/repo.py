@@ -1,8 +1,8 @@
-from pathlib import Path, PurePosixPath
-from dataclasses import dataclass
-from typing import Optional, List, NamedTuple, Set
 import asyncio
 import logging
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+from typing import List, NamedTuple, Optional, Set
 
 from .exceptions import RepoScanError
 

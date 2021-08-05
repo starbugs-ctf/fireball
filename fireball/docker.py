@@ -1,4 +1,5 @@
 import aiodocker
+from aiodocker.containers import DockerContainer
 from pathlib import Path
 import os
 from docker.utils.build import tar
@@ -69,7 +70,7 @@ class Docker:
             "Labels": {"fireball.managed": "true", **labels},
         }
         container = await self.client.containers.create(config=config)
-        return container.id
+        return container
 
     async def get_managed_containers(self):
         containers = await self.client.containers.list(

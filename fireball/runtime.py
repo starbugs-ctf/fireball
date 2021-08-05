@@ -119,10 +119,12 @@ class Runtime:
                     logger.info(problem)
                     self.problems[problem["slug"]] = Problem(**problem)
 
-    async def game_tick(self) -> None:
-        # TODO: update self.current_round
-        print("tick")
-        raise NotImplementedError
+    async def game_tick(self, round_id: int) -> None:
+        self.current_round = round_id
+        logger.info(f"New tick {round_id}")
+
+        for exploit_id in self.exploits.keys():
+            await self.start_exploit(exploit_id)
 
     async def repo_scan(self) -> None:
         result = await self.repo.scan()
@@ -182,11 +184,15 @@ class Runtime:
             # Skip if the contest is not running right now
             pass
 
+        logger.info(f"Running exploit {exploit_id}")
+
         async with aiohttp.ClientSession() as session:
             exploit = self.exploits[exploit_id]
             if exploit.enabled:
                 for team in self.teams.values():
                     if team not in exploit.ignore_teams:
+                        logger.debug(f"Running exploit {exploit_id} against team {team.name}")
+
                         async with session.post(
                             WEBSERV_URL + "/api/endpoint",
                             data={

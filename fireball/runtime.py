@@ -57,13 +57,18 @@ class Runtime:
         self.problems = {}
 
         self.main_loop_lock = asyncio.Lock()
+        self.main_loop_task = None
+
+        self.docker_poll_interval = 10
 
     async def connect(self) -> None:
         await self.repo.connect()
         await self.refresh()
+        self.main_loop_task = asyncio.create_task(self.main_loop())
 
     async def disconnect(self) -> None:
-        pass
+        await self.main_loop_lock.acquire()
+        self.main_loop_task.cancel()
 
     async def main_loop(self):
         while True:
@@ -104,6 +109,8 @@ class Runtime:
                         continue
 
                     # TODO: send status to siren
+
+            await asyncio.sleep(self.docker_poll_interval)
 
     async def refresh(self) -> None:
         async with aiohttp.ClientSession() as session:

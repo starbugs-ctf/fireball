@@ -1,6 +1,6 @@
 import aiodocker
 from pathlib import Path
-import os
+import os, time
 from docker.utils.build import tar
 import json
 from typing import List, Dict, Any, cast, Optional
@@ -76,3 +76,29 @@ class Docker:
             all=True, filters=json.dumps({"label": "fireball.managed=true"})
         )
         return containers
+
+    async def get_status_for_container(container):
+        runtime = container.attrs["Created"] - time.gmtime()
+        stdout = container.logs(stdout=True, stderr=False)
+        stderr = container.logs(stdout=False, stderr=True)
+        if container.status == "running":
+            return {
+                "status": "RUNNING",
+                "statusMessage": f"Running {runtime} seconds",
+                "stdout": stdout,
+                "stderr": stderr
+            }
+        elif container.status == 'Exited 0':
+            return {
+                "status": "OKAY",
+                "statusMessage": "Exited 0",
+                "stdout": stdout,
+                "stderr": stderr 
+            }
+        else: # elif 'Exited' in container.status
+            return {
+                "status": "RUNTIME_ERROR",
+                "statusMessage": container.status,
+                "stdout": stdout,
+                "stderr": stderr 
+            }

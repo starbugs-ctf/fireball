@@ -6,7 +6,7 @@ DATABASE_URL: str = "sqlite:///./dev/db.sqlite"
 DOCKER_SOCKET: str = (
     os.environ["FIREBALL_DOCKET_SOCKET"]
     if "FIREBALL_DOCKET_SOCKET" in os.environ
-    else "/var/run/docker.sock"
+    else "unix:///var/run/docker.sock"
 )
 
 # URL of the main dashboard

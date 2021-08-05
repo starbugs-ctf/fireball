@@ -4,8 +4,8 @@ import os
 DATABASE_URL: str = "sqlite:///./dev/db.sqlite"
 
 DOCKER_SOCKET: str = (
-    os.environ["FIREBALL_DOCKET_SOCKET"]
-    if "FIREBALL_DOCKET_SOCKET" in os.environ
+    os.environ["FIREBALL_DOCKER_SOCKET"]
+    if "FIREBALL_DOCKER_SOCKET" in os.environ
     else "/var/run/docker.sock"
 )
 

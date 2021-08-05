@@ -1,6 +1,9 @@
+import aiohttp
 import logging
+from dataclasses import dataclass
 from typing import Dict
 
+from .config import WEBSERV_URL
 from .repo import Repo
 from .docker import Docker
 from .exploit import Exploit
@@ -8,18 +11,57 @@ from .exploit import Exploit
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class Team:
+    id: int
+    name: str
+    slug: str
+    aux: str
+
+
+@dataclass
+class Problem:
+    id: int
+    enabled: bool
+    name: str
+    slug: str
+    aux: str
+
+
 class Runtime:
     repo: Repo
     docker: Docker
     exploits: Dict[str, Exploit]
+
+    # team slug -> team
+    teams: Dict[str, Team]
+
+    # problem slug -> team
+    problems: Dict[str, Problem]
 
     def __init__(self, repo: Repo, docker: Docker):
         self.repo = repo
         self.docker = docker
         self.exploits = {}
 
+        self.teams = {}
+        self.problems = {}
+
     async def connect(self) -> None:
-        pass
+        async with aiohttp.ClientSession() as session:
+            async with session.get(WEBSERV_URL + "/api/teams") as response:
+                self.teams.clear()
+                print("=== Teams ===")
+                for team in await response.json():
+                    print(team)
+                    self.teams[team["slug"]] = Team(**team)
+
+            async with session.get(WEBSERV_URL + "/api/problems") as response:
+                self.problems.clear()
+                print("=== Problems ===")
+                for problem in await response.json():
+                    print(problem)
+                    self.problems[problem["slug"]] = Problem(**problem)
 
     async def disconnect(self) -> None:
         pass

@@ -1,16 +1,18 @@
 from fastapi import BackgroundTasks, FastAPI
 
-from .config import DOCKER_SOCKET, EXPLOIT_REPO_PATH
+from .config import DOCKER_SOCKET, EXPLOIT_REPO_PATH, WEBSERV_URL
 from .db import database
 from .docker import Docker
 from .repo import Repo
 from .runtime import Runtime
+from .siren import SirenAPI
 
 app = FastAPI()
 
 runtime = Runtime(
     Repo(EXPLOIT_REPO_PATH, "origin/master"),
     Docker(DOCKER_SOCKET),
+    SirenAPI(WEBSERV_URL),
 )
 
 

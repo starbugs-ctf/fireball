@@ -10,6 +10,7 @@ from .docker import Docker
 from .exploit import Exploit
 from .repo import Repo
 from .task import Task
+from .siren import SirenAPI
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +45,10 @@ class Runtime:
     # problem slug -> team
     problems: Dict[str, Problem]
 
-    def __init__(self, repo: Repo, docker: Docker):
+    def __init__(self, repo: Repo, docker: Docker, siren_api: SirenAPI):
         self.repo = repo
         self.docker = docker
+        self.siren = siren_api
         self.exploits = {}
 
         self.current_round = -1

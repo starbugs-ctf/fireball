@@ -48,6 +48,12 @@ class Runtime:
         self.problems = {}
 
     async def connect(self) -> None:
+        await self.refresh()
+
+    async def disconnect(self) -> None:
+        pass
+
+    async def refresh(self) -> None:
         async with aiohttp.ClientSession() as session:
             async with session.get(WEBSERV_URL + "/api/teams") as response:
                 self.teams.clear()
@@ -62,9 +68,6 @@ class Runtime:
                 for problem in await response.json():
                     print(problem)
                     self.problems[problem["slug"]] = Problem(**problem)
-
-    async def disconnect(self) -> None:
-        pass
 
     async def game_tick(self) -> None:
         # TODO

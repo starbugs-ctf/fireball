@@ -31,6 +31,12 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.post("/refresh")
+async def runtime_refresh():
+    await runtime.refresh()
+    return {"status": "ok"}
+
+
 @app.post("/tick")
 async def new_tick(background_tasks: BackgroundTasks):
     """Triggers new tick"""

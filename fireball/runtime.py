@@ -48,6 +48,7 @@ class Runtime:
         self.problems = {}
 
     async def connect(self) -> None:
+        await self.repo.connect()
         await self.refresh()
 
     async def disconnect(self) -> None:

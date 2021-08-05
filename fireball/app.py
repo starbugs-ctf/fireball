@@ -9,7 +9,7 @@ from .config import DOCKER_SOCKET, EXPLOIT_REPO_INITIAL_HASH, EXPLOIT_REPO_PATH
 app = FastAPI()
 
 runtime = Runtime(
-    Repo(EXPLOIT_REPO_PATH, EXPLOIT_REPO_INITIAL_HASH, "origin/master"),
+    Repo(EXPLOIT_REPO_PATH, "origin/master"),
     Docker(DOCKER_SOCKET),
 )
 

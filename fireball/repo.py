@@ -116,12 +116,16 @@ class RepoScanResult:
 
 
 class Repo:
-    def __init__(self, path: str, last_processed_hash: str, branch: str):
+    def __init__(self, path: str, branch: str):
         self.path = Path(path).absolute()
         assert (self.path / ".git").exists(), "Unable to find git repo"
 
-        self.last_processed_hash = last_processed_hash
+        # Will be initialized in connect()
+        self.last_processed_hash = ""
         self.branch = branch
+
+    async def connect(self) -> None:
+        self.last_processed_hash = await git_get_hash(self.path)
 
     async def scan(self) -> Optional[RepoScanResult]:
         await git_fetch(self.path)

@@ -33,7 +33,7 @@ class TaskStatus:
 
 
 def is_over_timeout(started_at: str, timeout: int):
-    started_at = parser.parse(started_at)
+    started_at = dateutil.parser.parse(started_at)
     if started_at + timedelta(seconds=timeout) > datetime.now():
         return True
     else:

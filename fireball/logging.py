@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from asyncio import Queue
 
 import aiohttp
@@ -9,7 +9,7 @@ DISCORD_API_RATE_LIMIT = 1 / 30  # 50 requests per second
 
 
 class DiscordHandler(logging.Handler):
-    def __init__(self, webhook_url: str):
+    def __init__(self, webhook_url: Optional[str]):
         super(DiscordHandler, self).__init__()
         self._webhook_url = webhook_url
         self._session = aiohttp.ClientSession()
@@ -46,10 +46,11 @@ class DiscordHandler(logging.Handler):
             task = asyncio.create_task(send())
 
     async def send_message(self, message: str):
-        await self._session.post(self._webhook_url, json={"content": message})
+        if self._webhook_url is not None:
+            await self._session.post(self._webhook_url, json={"content": message})
 
 
-def configure_discord_logging(webhook_url: str):
+def configure_discord_logging(webhook_url: Optional[str]):
     root = logging.getLogger()
 
     discord_handler = DiscordHandler(webhook_url)

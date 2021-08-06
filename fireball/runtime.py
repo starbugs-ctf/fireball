@@ -11,8 +11,9 @@ from .config import WEBSERV_URL
 from .docker import Docker
 from .exploit import Exploit
 from .repo import Repo
-from .task import Task, TaskStatusEnum
+from .task import Task, TaskStatusEnum, TaskStatus
 from .siren import SirenAPI, Team, Problem
+from .defcon import DefconAPI
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +36,14 @@ class Runtime:
         repo: Repo,
         docker: Docker,
         siren_api: SirenAPI,
+        defcon_api: DefconAPI,
         docker_poll_interval: int,
         docker_max_running_containers: int,
     ):
         self.repo = repo
         self.docker = docker
         self.siren = siren_api
+        self.defcon = defcon_api
         self.exploits = {}
 
         self.current_round = 1
@@ -142,6 +145,16 @@ class Runtime:
                             },
                         )
 
+                        if status.status == TaskStatusEnum.OKAY:
+                            if status.flag != None:
+                                await self.submit_flag(task, status)
+                                await task.container.delete()
+                            else:
+                                logger.error(
+                                    "Container has finished, but flag wasn't found: %s",
+                                    task.container_id,
+                                )
+
                 zipped = list(zip(statuses, tasks))
                 random.shuffle(zipped)
                 for status, task in zipped:
@@ -150,6 +163,11 @@ class Runtime:
                         and status.status == TaskStatusEnum.PENDING
                     ):
                         try:
+                            logger.info(
+                                "Running %s, task_id: %s",
+                                task.exploit.name,
+                                task.task_id,
+                            )
                             await task.container.start()
                             running_containers += 1
 
@@ -261,7 +279,7 @@ class Runtime:
 
         exploit = self.exploits[exploit_id]
         if exploit.enabled:
-            logger.info(f"Running exploit {exploit_id}")
+            logger.info(f"Scheduling exploit {exploit_id}")
 
             for team in self.teams.values():
                 if team.slug not in exploit.ignore_teams:
@@ -288,3 +306,19 @@ class Runtime:
                             "fireball.task_id": str(task["id"]),
                         },
                     )
+
+    async def submit_flag(self, task: Task, status: TaskStatus) -> bool:
+        logger.info("Submitting flag '%s' for %s", status.flag, task.exploit.chal_name)
+        try:
+            res = await self.defcon.submit_flag(status.flag)
+        except Exception as e:
+            logger.error("Failed to submit flag to defcon api: %s", e)
+            return False
+
+        if res is not None:
+            await self.siren.create_flag_submission(
+                task.task_id, status.flag, res["message"], ""
+            )
+            return True
+
+        return False

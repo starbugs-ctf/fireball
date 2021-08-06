@@ -98,8 +98,6 @@ class Task:
 
             if exit_code == 0:
                 flag = await extract_flag(self.container)
-                await self.container.delete()
-                logger.info("Submitting flag '%s' for %s", flag, self.exploit.chal_name)
                 return TaskStatus(
                     status=TaskStatusEnum.OKAY, stdout=stdout, stderr=stderr, flag=flag
                 )

@@ -8,12 +8,14 @@ from .config import (
     DOCKER_POLLING_INTERVAL,
     WEBHOOK_URL,
     EXPLOIT_REPO_BRANCH,
+    DEFCON_API,
 )
 from .docker import Docker
 from .repo import Repo
 from .runtime import Runtime
 from .siren import SirenAPI
 from .logging import configure_default_logging, configure_discord_logging
+from .defcon import DefconAPI
 
 
 app = FastAPI()
@@ -22,6 +24,7 @@ runtime = Runtime(
     Repo(EXPLOIT_REPO_PATH, EXPLOIT_REPO_BRANCH),
     Docker(DOCKER_SOCKET),
     SirenAPI(WEBSERV_URL),
+    DefconAPI(DEFCON_API),
     DOCKER_POLLING_INTERVAL,
     DOCKER_MAX_CONTAINERS_RUNNING,
 )
@@ -64,22 +67,7 @@ async def new_scan(background_tasks: BackgroundTasks):
     return {"status": "ok"}
 
 
-@app.get("/execution")
-async def get_executions(running: bool = False, max_size: int = 100):
-    """Returns last N executions of exploits"""
-    # TODO
-    raise NotImplementedError
-
-
-@app.get("/execution/{execution_id}")
-async def get_execution(execution_id: int):
-    """Returns data about `id` execution"""
-    # TODO
-    raise NotImplementedError
-
-
-@app.post("/execution/")
-async def create_execution():
-    """Creates new execution"""
-    # TODO
-    raise NotImplementedError
+@app.get("/exec")
+async def get_executions(background_tasks: BackgroundTasks, exploit_id: str):
+    await runtime.start_exploit(exploit_id)
+    return {"status": "ok"}

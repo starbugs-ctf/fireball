@@ -62,6 +62,8 @@ class Runtime:
             logger.info("==============================")
             logger.info("Starting...")
             logger.info("==============================")
+            await self.refresh()
+
             exploit_paths = await self.repo.connect()
             for path in exploit_paths:
                 chal_name = path.parts[0]
@@ -78,7 +80,12 @@ class Runtime:
                     logger.error("Failed to parse %s exploit: %s", exploit_id, e)
                     continue
 
-            await self.refresh()
+                new_exploit = await self.siren.create_exploit(
+                    exploit_name,
+                    exploit.docker_image_hash,
+                    self.problems[exploit.chal_name].id,
+                )
+
             self.current_round = await self.siren.get_current_round()
             logger.info("Fetched round id %s from siren", self.current_round)
             self.main_loop_task = asyncio.create_task(self.main_loop())

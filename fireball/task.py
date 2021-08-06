@@ -50,7 +50,7 @@ async def extract_flag(container: DockerContainer) -> Optional[str]:
         raise e
 
     try:
-        return tar.extractfile("/flag").read().decode()
+        return tar.extractfile("flag").read().decode()
     except Exception as e:
         logger.error("Failed to extract flag: %s", e)
 
@@ -99,11 +99,12 @@ class Task:
             if exit_code == 0:
                 flag = await extract_flag(self.container)
                 await self.container.delete()
+                logger.info("Submitting flag '%s' for %s", flag, self.exploit.chal_name)
                 return TaskStatus(
                     status=TaskStatusEnum.OKAY, stdout=stdout, stderr=stderr, flag=flag
                 )
             else:
-                # Not removing the container on purpose here to ease debugging
+                await self.container.delete()
                 return TaskStatus(
                     status=TaskStatusEnum.RUNTIME_ERROR,
                     stdout=stdout,

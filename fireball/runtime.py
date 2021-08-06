@@ -325,7 +325,7 @@ class Runtime:
                 message = "DUPLICATE"
 
             await self.siren.create_flag_submission(
-                task.task_id, status.flag, res["message"], ""
+                task.task_id, status.flag, message, ""
             )
             return True
 

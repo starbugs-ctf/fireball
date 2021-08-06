@@ -9,7 +9,7 @@ from .config import WEBSERV_URL
 from .docker import Docker
 from .exploit import Exploit
 from .repo import Repo
-from .task import Task
+from .task import Task, TaskStatusEnum
 from .siren import SirenAPI, Team, Problem
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,14 @@ class Runtime:
     # problem slug -> team
     problems: Dict[str, Problem]
 
-    def __init__(self, repo: Repo, docker: Docker, siren_api: SirenAPI):
+    def __init__(
+        self,
+        repo: Repo,
+        docker: Docker,
+        siren_api: SirenAPI,
+        docker_poll_interval: int,
+        docker_max_running_containers: int,
+    ):
         self.repo = repo
         self.docker = docker
         self.siren = siren_api
@@ -42,7 +49,8 @@ class Runtime:
         self.main_loop_lock = asyncio.Lock()
         self.main_loop_task = None
 
-        self.docker_poll_interval = 10
+        self.docker_poll_interval = docker_poll_interval
+        self.docker_max_running_containers = docker_max_running_containers
 
     async def connect(self) -> None:
         await self.repo.connect()
@@ -75,6 +83,7 @@ class Runtime:
 
                     if exploit_id not in self.exploits:
                         logger.warning("Couldn't find exploit with id:", exploit_id)
+                        await container.delete(force="true")
                         continue
 
                     exploit = self.exploits[exploit_id]
@@ -84,6 +93,7 @@ class Runtime:
                     *[task.status() for task in tasks], return_exceptions=True
                 )
 
+                running_containers = 0
                 for status, task in zip(statuses, tasks):
                     if isinstance(status, Exception):
                         logger.error(
@@ -93,7 +103,19 @@ class Runtime:
                         )
                         continue
 
+                    if status.status == TaskStatusEnum.RUNNING:
+                        running_containers += 1
+
                     # TODO: send status to siren
+
+                for status, task in zip(statuses, tasks):
+                    if (
+                        running_containers < self.docker_max_running_containers
+                        and status.status == TaskStatusEnum.PENDING
+                    ):
+                        await task.container.start()
+                        running_containers += 1
+                        # TODO: send status to siren
 
             await asyncio.sleep(self.docker_poll_interval)
 
@@ -151,7 +173,7 @@ class Runtime:
                 self.exploits[exploit_id] = exploit
             except Exception as e:
                 # TODO: proper logging
-                logger.error("%s", e)
+                logger.error("Failed to parse %s exploit: %s", exploit_id, e)
                 continue
 
             new_exploit = await self.siren.create_exploit(

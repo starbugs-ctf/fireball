@@ -33,11 +33,12 @@ def configure_discord_logging(webhook_url: str):
 
     root.addHandler(discord_handler)
 
+
 def configure_default_logging():
     root = logging.getLogger("fireball")
     root.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     ch.setFormatter(formatter)
     root.addHandler(ch)

@@ -14,3 +14,6 @@ DOCKER_SOCKET: str = (
 WEBSERV_URL: str = "http://localhost:3000"
 
 EXPLOIT_REPO_PATH: str = "../exploits-testing"
+
+DOCKER_MAX_CONTAINERS_RUNNING: int = 30
+DOCKER_POLLING_INTERVAL: int = 10

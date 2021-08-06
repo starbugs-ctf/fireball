@@ -1,6 +1,12 @@
 from fastapi import BackgroundTasks, FastAPI
 
-from .config import DOCKER_SOCKET, EXPLOIT_REPO_PATH, WEBSERV_URL
+from .config import (
+    DOCKER_SOCKET,
+    EXPLOIT_REPO_PATH,
+    WEBSERV_URL,
+    DOCKER_MAX_CONTAINERS_RUNNING,
+    DOCKER_POLLING_INTERVAL,
+)
 from .docker import Docker
 from .repo import Repo
 from .runtime import Runtime
@@ -14,6 +20,8 @@ runtime = Runtime(
     Repo(EXPLOIT_REPO_PATH, "origin/master"),
     Docker(DOCKER_SOCKET),
     SirenAPI(WEBSERV_URL),
+    DOCKER_POLLING_INTERVAL,
+    DOCKER_MAX_CONTAINERS_RUNNING,
 )
 
 

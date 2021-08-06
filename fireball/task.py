@@ -16,6 +16,14 @@ from .exploit import Exploit
 logger = logging.getLogger(__name__)
 
 
+class TaskStatusEnum:
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    OKAY = "OKAY"
+    RUNTIME_ERROR = "RUNTIME_ERROR"
+    TIMEOUT = "TIMEOUT"
+
+
 @dataclass
 class TaskStatus:
     status: str  # PENDING, RUNNING, OKAY, RUNTIME_ERROR, TIMEOUT
@@ -76,9 +84,13 @@ class Task:
         if status == "running":
             if is_over_timeout(stats["State"]["StartedAt"], self.exploit.timeout):
                 await self.container.delete()
-                return TaskStatus(status="TIMEOUT", stdout=stdout, stderr=stderr)
+                return TaskStatus(
+                    status=TaskStatusEnum.TIMEOUT, stdout=stdout, stderr=stderr
+                )
             else:
-                return TaskStatus(status="RUNNING", stdout=stdout, stderr=stderr)
+                return TaskStatus(
+                    status=TaskStatusEnum.RUNNING, stdout=stdout, stderr=stderr
+                )
 
         elif status == "exited":
             exit_code = stats["State"]["ExitCode"]
@@ -87,19 +99,19 @@ class Task:
                 flag = await extract_flag(self.container)
                 await self.container.delete()
                 return TaskStatus(
-                    status="OKAY", stdout=stdout, stderr=stderr, flag=flag
+                    status=TaskStatusEnum.OKAY, stdout=stdout, stderr=stderr, flag=flag
                 )
             else:
                 # Not removing the container on purpose here to ease debugging
                 return TaskStatus(
-                    status="RUNTIME_ERROR",
+                    status=TaskStatusEnum.RUNTIME_ERROR,
                     stdout=stdout,
                     stderr=stderr,
                 )
 
         elif status == "paused" or status == "created":
             return TaskStatus(
-                status="PENDING",
+                status=TaskStatusEnum.PENDING,
                 stdout=stdout,
                 stderr=stderr,
             )
@@ -107,7 +119,7 @@ class Task:
             # One of restarting, removing, or dead
             # Not removing the container on purpose here to ease debugging
             return TaskStatus(
-                status="RUNTIME_ERROR",
+                status=TaskStatusEnum.RUNTIME_ERROR,
                 stdout=stdout,
                 stderr=stderr,
             )

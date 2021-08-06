@@ -3,6 +3,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import List, NamedTuple, Optional, Set
+import shlex
 
 from .exceptions import RepoScanError
 
@@ -55,11 +56,11 @@ async def git_checkout(path: Path, branch: str):
         raise RepoScanError("Failed to checkout repo")
 
 
-async def git_get_hash(path: Path) -> str:
+async def git_get_hash(path: Path, ref="HEAD") -> str:
     proc = await asyncio.create_subprocess_exec(
         "git",
         "rev-parse",
-        "HEAD",
+        *shlex.split(ref),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=path,
@@ -127,13 +128,17 @@ class Repo:
         self.branch = branch
 
     async def connect(self) -> None:
-        self.last_processed_hash = await git_get_hash(self.path)
+        self.last_processed_hash = await git_get_hash(self.path, "--max-parents=0 HEAD")
 
     async def scan(self) -> Optional[RepoScanResult]:
+        logger.debug("scan")
+
         await git_fetch(self.path)
         await git_checkout(self.path, self.branch)
 
         new_hash = await git_get_hash(self.path)
+        logger.debug(f"new_hash {new_hash}")
+        logger.debug(f"last_processed_hash {self.last_processed_hash}")
         if new_hash == self.last_processed_hash:
             # no new commits
             return None

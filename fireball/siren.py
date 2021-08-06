@@ -55,7 +55,7 @@ class SirenAPI:
     async def delete_exploits(self, exploit_name: str, problem_id: int):
         async with self.client.delete(
             self.api_url + "/api/exploits",
-            data={"name": exploit_name, "problemId": problem_id},
+            json={"name": exploit_name, "problemId": problem_id},
         ) as response:
             check(response)
             return await response.json()
@@ -65,7 +65,7 @@ class SirenAPI:
     ):
         async with self.client.post(
             self.api_url + "/api/exploits",
-            data={
+            json={
                 "name": exploit_name,
                 "key": exploit_key,
                 "problemId": problem_id,
@@ -77,18 +77,19 @@ class SirenAPI:
     async def endpoint(self, team_id: int, problem_id: int) -> Endpoint:
         async with self.client.post(
             self.api_url + "/api/endpoint",
-            data={
+            json={
                 "teamId": team_id,
                 "problemId": problem_id,
             },
         ) as response:
             check(response)
+            logger.debug(response)
             return Endpoint(**(await response.json()))
 
     async def create_task(self, round_id: int, exploit_key: str, team_id: int):
         async with self.client.post(
             self.api_url + "/api/tasks",
-            data={
+            json={
                 "roundId": round_id,
                 "exploitKey": exploit_key,
                 "teamId": team_id,

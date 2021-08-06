@@ -72,3 +72,13 @@ async def create_execution():
     """Creates new execution"""
     # TODO
     raise NotImplementedError
+
+
+@app.post("/start_exploit/")
+async def start_exploit(exploit_id: str):
+    await runtime.start_exploit(exploit_id)
+
+
+@app.post("/stupid/")
+async def stupid():
+    await runtime.stupid()

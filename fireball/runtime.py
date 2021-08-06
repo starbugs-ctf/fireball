@@ -3,12 +3,13 @@ from dataclasses import dataclass
 from typing import Dict
 import asyncio
 
+from pathlib import Path, PurePosixPath
 import aiohttp
 
 from .config import WEBSERV_URL
 from .docker import Docker
 from .exploit import Exploit
-from .repo import Repo
+from .repo import Repo, RepoScanResult
 from .task import Task
 from .siren import SirenAPI, Team, Problem
 
@@ -54,48 +55,39 @@ class Runtime:
         await self.main_loop_lock.acquire()
         self.main_loop_task.cancel()
 
-    async def main_loop(self):
-        while True:
-            async with self.main_loop_lock:
-                logger.debug("Polling docker")
-                containers = self.docker.get_managed_containers()
-                tasks = []
+    async def stupid(self):
+        print("WTF")
+        logger.debug("Polling docker")
+        containers = await self.docker.get_managed_containers()
+        tasks = []
 
-                for container in containers:
-                    try:
-                        exploit_id = container["Config"]["Labels"][
-                            "fireball.exploit_id"
-                        ]
-                    except KeyError:
-                        logger.warning(
-                            "Found a managed container without exploit_id: %s",
-                            container.id,
-                        )
-                        continue
+        logger.debug("containers")
+        logger.debug(containers)
 
-                    if exploit_id not in self.exploits:
-                        logger.warning("Couldn't find exploit with id:", exploit_id)
-                        continue
+        for container in containers:
+            exploit_id = container["Config"]["Labels"]["fireball.exploit_id"]
+            exploit = self.exploits[exploit_id]
+            tasks.append(Task(exploit, container))
 
-                    exploit = self.exploits[exploit_id]
-                    tasks.append(Task(exploit, container))
+        statuses = await asyncio.gather(
+            *[task.status() for task in tasks], return_exceptions=True
+        )
 
-                statuses = await asyncio.gather(
-                    *[task.status() for task in tasks], return_exceptions=True
+        for status, task in zip(statuses, tasks):
+            if isinstance(status, Exception):
+                logger.error(
+                    "An error occured while querying status of %s task: %s",
+                    task.id,
+                    status,
                 )
+                continue
 
-                for status, task in zip(statuses, tasks):
-                    if isinstance(status, Exception):
-                        logger.error(
-                            "An error occured while querying status of %s task: %s",
-                            task.id,
-                            status,
-                        )
-                        continue
+            # TODO: send status to siren
 
-                    # TODO: send status to siren
-
-            await asyncio.sleep(self.docker_poll_interval)
+    async def main_loop(self):
+        # while True:
+        pass
+        # self.update()
 
     async def refresh(self) -> None:
         self.teams.clear()
@@ -113,17 +105,29 @@ class Runtime:
     async def game_tick(self, round_id: int) -> None:
         self.current_round = round_id
         logger.info(f"New tick {round_id}")
+        logger.debug(self.exploits)
 
         for exploit_id in self.exploits.keys():
+            logger.debug(f"exploit_id {exploit_id}")
             await self.start_exploit(exploit_id)
 
     async def repo_scan(self) -> None:
-        result = await self.repo.scan()
-        if result is None:
-            return
+        # result = await self.repo.scan()
+        # logger.debug("scan done")
+        # if result is None:
+        #     return
+
+        # logger.debug("scan pass")
+        # logger.debug(result)
 
         # Be careful! The term "exploit ID" refers to different things
         # on the web server and the task runner
+
+        result = RepoScanResult(
+            updated_exploits=[Path("rorschach/test-exploit")],
+            removed_exploits=[],
+            last_processed_hash="",
+        )
 
         for path in result.removed_exploits:
             chal_name = path.parts[0]
@@ -160,13 +164,14 @@ class Runtime:
             logger.debug(f"Created exploits: {new_exploit}")
 
             # Run the updated exploit
-            self.start_exploit(exploit_id)
+            await self.start_exploit(exploit_id)
 
     async def start_exploit(self, exploit_id: str) -> None:
         if self.current_round < 0:
             # Skip if the contest is not running right now
             pass
 
+        logger.debug("start_exploit")
         exploit = self.exploits[exploit_id]
         if exploit.enabled:
             logger.info(f"Running exploit {exploit_id}")
@@ -180,12 +185,14 @@ class Runtime:
                     endpoint = await self.siren.endpoint(
                         team.id, self.problems[exploit.chal_name].id
                     )
+                    logger.debug("endpoint")
 
                     task = await self.siren.create_task(
                         self.current_round, exploit.docker_image_hash, team.id
                     )
+                    logger.debug("task")
 
-                    self.docker.create_container(
+                    await self.docker.create_container(
                         exploit.docker_image_hash,
                         {
                             "HOST": endpoint.host,
@@ -193,6 +200,6 @@ class Runtime:
                         },
                         {
                             "fireball.exploit_id": exploit_id,
-                            "fireball.task_id": task["id"],
+                            "fireball.task_id": str(task["id"]),
                         },
                     )

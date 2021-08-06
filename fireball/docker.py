@@ -70,11 +70,20 @@ class Docker:
             "Image": image_hash,
             "Labels": {"fireball.managed": "true", **labels},
         }
-        container = await self.client.containers.create(config=config)
-        return container
+        print(config)
+        try:
+            container = await self.client.containers.create(config=config)
+            print("Container created")
+            print(container)
+            # await container.start()
+            return container
+        except Exception as e:
+            print(e)
 
     async def get_managed_containers(self):
         containers = await self.client.containers.list(
-            all=True, filters=json.dumps({"label": "fireball.managed=true"})
+            all=True, filters=json.dumps({"label": ["fireball.managed=true"]})
         )
+        # containers = await self.client.containers.list(all=True)
+        # containers = await self.client.containers.list()
         return containers

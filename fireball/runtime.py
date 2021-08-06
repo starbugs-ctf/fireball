@@ -321,7 +321,7 @@ class Runtime:
 
         if res is not None:
             message = res["message"]
-            if message = "ALREADY_SUBMITTED":
+            if message == "ALREADY_SUBMITTED":
                 message = "DUPLICATE"
 
             await self.siren.create_flag_submission(

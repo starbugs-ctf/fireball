@@ -107,7 +107,7 @@ class SirenAPI:
     async def create_flag_submission(
         self, task_id: int, flag: str, submission_result: str, message: str
     ) -> None:
-        async with self.client.put(
+        async with self.client.post(
             self.api_url + "/api/flags",
             json={
                 "taskId": task_id,

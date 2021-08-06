@@ -1,7 +1,6 @@
 from fastapi import BackgroundTasks, FastAPI
 
 from .config import DOCKER_SOCKET, EXPLOIT_REPO_PATH, WEBSERV_URL
-from .db import database
 from .docker import Docker
 from .repo import Repo
 from .runtime import Runtime
@@ -19,13 +18,11 @@ runtime = Runtime(
 @app.on_event("startup")
 async def startup():
     await runtime.connect()
-    await database.connect()
 
 
 @app.on_event("shutdown")
 async def shutdown():
     await runtime.disconnect()
-    await database.disconnect()
 
 
 @app.get("/health_check")

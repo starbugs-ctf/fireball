@@ -1,7 +1,6 @@
 import os
 
-# DATABASE_URL: str = os.environ["FIREBALL_DATABASE_URL"]
-DATABASE_URL: str = "sqlite:///./dev/db.sqlite"
+PROD = os.environ.get("PROD") is not None
 
 DOCKER_SOCKET: str = (
     os.environ["FIREBALL_DOCKER_SOCKET"]
@@ -13,7 +12,10 @@ DOCKER_SOCKET: str = (
 # WEBSERV_URL: str = os.environ["FIREBALL_WEBSERV_URL"]
 WEBSERV_URL: str = "http://localhost:3000"
 
-EXPLOIT_REPO_PATH: str = "../exploits-testing"
+if PROD:
+    EXPLOIT_REPO_PATH: str = "../defcon-ctf-2021"
+else:
+    EXPLOIT_REPO_PATH: str = "../exploits-testing"
 
 DOCKER_MAX_CONTAINERS_RUNNING: int = 30
 DOCKER_POLLING_INTERVAL: int = 10

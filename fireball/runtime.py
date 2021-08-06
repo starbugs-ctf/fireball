@@ -55,6 +55,9 @@ class Runtime:
         self.docker_max_running_containers = docker_max_running_containers
 
     async def connect(self) -> None:
+        logger.info("==============================")
+        logger.info("Starting...")
+        logger.info("==============================")
         exploit_paths = await self.repo.connect()
         for path in exploit_paths:
             chal_name = path.parts[0]

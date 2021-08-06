@@ -330,6 +330,8 @@ class Runtime:
             message = res["message"]
             if message == "ALREADY_SUBMITTED":
                 message = "DUPLICATE"
+            elif message == "INCORRECT":
+                message = "WRONG"
 
             await self.siren.create_flag_submission(
                 task.task_id, status.flag, message, ""

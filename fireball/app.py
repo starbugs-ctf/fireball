@@ -7,6 +7,7 @@ from .config import (
     DOCKER_MAX_CONTAINERS_RUNNING,
     DOCKER_POLLING_INTERVAL,
     WEBHOOK_URL,
+    EXPLOIT_REPO_BRANCH,
 )
 from .docker import Docker
 from .repo import Repo
@@ -18,7 +19,7 @@ from .logging import configure_default_logging, configure_discord_logging
 app = FastAPI()
 
 runtime = Runtime(
-    Repo(EXPLOIT_REPO_PATH, "origin/master"),
+    Repo(EXPLOIT_REPO_PATH, EXPLOIT_REPO_BRANCH),
     Docker(DOCKER_SOCKET),
     SirenAPI(WEBSERV_URL),
     DOCKER_POLLING_INTERVAL,

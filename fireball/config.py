@@ -14,8 +14,10 @@ WEBSERV_URL: str = "http://localhost:3000"
 
 if PROD:
     EXPLOIT_REPO_PATH: str = "../defcon-ctf-2021"
+    EXPLOIT_REPO_BRANCH: str = "origin/main"
 else:
     EXPLOIT_REPO_PATH: str = "../exploits-testing"
+    EXPLOIT_REPO_BRANCH: str = "origin/master"
 
 DOCKER_MAX_CONTAINERS_RUNNING: int = 30
 DOCKER_POLLING_INTERVAL: int = 10

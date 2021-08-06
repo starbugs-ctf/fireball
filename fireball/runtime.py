@@ -91,9 +91,7 @@ class Runtime:
 
                 for container in containers:
                     try:
-                        exploit_id = container["Labels"][
-                            "fireball.exploit_id"
-                        ]
+                        exploit_id = container["Labels"]["fireball.exploit_id"]
                         task_id = int(container["Labels"]["fireball.task_id"])
                     except KeyError:
                         logger.warning(
@@ -161,7 +159,7 @@ class Runtime:
                                     "status": TaskStatusEnum.RUNNING,
                                 },
                             )
-                            
+
                         except DockerError as e:
                             logger.error(e)
                             await task.container.delete(force="true")
@@ -169,7 +167,7 @@ class Runtime:
                                 task.task_id,
                                 {
                                     "status": TaskStatusEnum.RUNTIME_ERROR,
-                                    "statusMessage": "Failed to start the container"
+                                    "statusMessage": "Failed to start the container",
                                 },
                             )
                             continue
@@ -182,7 +180,6 @@ class Runtime:
                                 "status": TaskStatusEnum.RUNNING,
                             },
                         )
-
 
             await asyncio.sleep(self.docker_poll_interval)
 
@@ -244,7 +241,7 @@ class Runtime:
                 continue
 
             try:
-               problem_id = self.problems[chal_name].id
+                problem_id = self.problems[chal_name].id
             except KeyError:
                 logger.warn("Failed to find a problem: %s", chal_name)
                 continue

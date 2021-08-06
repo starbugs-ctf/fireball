@@ -104,6 +104,9 @@ async def git_changed_exploits(path: Path, from_hash: str) -> Set[PurePosixPath]
             # it is a change outside exploit folders
             continue
 
+        if rel_path[1][0] == ".":
+            continue
+
         # e.g. "test-problem/test-exploit-2"
         result.add(PurePosixPath(*rel_path.parts[:2]))
 
@@ -128,9 +131,10 @@ class Repo:
 
     async def connect(self) -> List[Path]:
         self.last_processed_hash = await git_get_hash(self.path)
-        paths = self.path.glob("*/*/")
+        paths = self.path.glob("*/*")
         paths = map(lambda x: Path(x.parts[-2], x.parts[-1]), paths)
         paths = filter(lambda x: not x.parts[-2][0] == ".", paths)
+        paths = filter(lambda x: not x.parts[-1][0] == ".", paths)
         return list(paths)
 
     async def scan(self) -> Optional[RepoScanResult]:

@@ -58,29 +58,30 @@ class Runtime:
         self.docker_max_running_containers = docker_max_running_containers
 
     async def connect(self) -> None:
-        logger.info("==============================")
-        logger.info("Starting...")
-        logger.info("==============================")
-        exploit_paths = await self.repo.connect()
-        for path in exploit_paths:
-            chal_name = path.parts[0]
-            exploit_name = path.parts[1]
-            exploit_id = f"{chal_name}:{exploit_name}"
-            logger.info(f"Adding exploit {exploit_id}")
+        async with self.main_loop_lock:
+            logger.info("==============================")
+            logger.info("Starting...")
+            logger.info("==============================")
+            exploit_paths = await self.repo.connect()
+            for path in exploit_paths:
+                chal_name = path.parts[0]
+                exploit_name = path.parts[1]
+                exploit_id = f"{chal_name}:{exploit_name}"
+                logger.info(f"Adding exploit {exploit_id}")
 
-            try:
-                exploit = await Exploit.from_path(
-                    self, self.repo.path / path, exploit_name, chal_name
-                )
-                self.exploits[exploit_id] = exploit
-            except Exception as e:
-                logger.error("Failed to parse %s exploit: %s", exploit_id, e)
-                continue
+                try:
+                    exploit = await Exploit.from_path(
+                        self, self.repo.path / path, exploit_name, chal_name
+                    )
+                    self.exploits[exploit_id] = exploit
+                except Exception as e:
+                    logger.error("Failed to parse %s exploit: %s", exploit_id, e)
+                    continue
 
-        await self.refresh()
-        self.current_round = await self.siren.get_current_round()
-        self.main_loop_task = asyncio.create_task(self.main_loop())
-        logger.info("Runtime initialized")
+            await self.refresh()
+            self.current_round = await self.siren.get_current_round()
+            self.main_loop_task = asyncio.create_task(self.main_loop())
+            logger.info("Runtime initialized")
 
     async def disconnect(self) -> None:
         await self.main_loop_lock.acquire()
@@ -219,8 +220,9 @@ class Runtime:
         self.current_round = round_id
         logger.info(f"New tick {round_id}")
 
-        for exploit_id in self.exploits.keys():
-            await self.start_exploit(exploit_id)
+        async with self.main_loop_lock:
+            for exploit_id in self.exploits.keys():
+                await self.start_exploit(exploit_id)
 
     async def repo_scan(self) -> None:
         result = await self.repo.scan()

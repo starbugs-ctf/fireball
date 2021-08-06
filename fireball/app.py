@@ -67,7 +67,7 @@ async def new_scan(background_tasks: BackgroundTasks):
     return {"status": "ok"}
 
 
-@app.get("/exec")
+@app.post("/exec")
 async def get_executions(background_tasks: BackgroundTasks, exploit_id: str):
     await runtime.start_exploit(exploit_id)
     return {"status": "ok"}

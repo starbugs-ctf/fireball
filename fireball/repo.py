@@ -104,7 +104,7 @@ async def git_changed_exploits(path: Path, from_hash: str) -> Set[PurePosixPath]
             # it is a change outside exploit folders
             continue
 
-        if rel_path[1][0] == ".":
+        if rel_path.parts[1][0] == ".":
             continue
 
         # e.g. "test-problem/test-exploit-2"

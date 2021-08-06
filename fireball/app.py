@@ -6,12 +6,13 @@ from .config import (
     WEBSERV_URL,
     DOCKER_MAX_CONTAINERS_RUNNING,
     DOCKER_POLLING_INTERVAL,
+    WEBHOOK_URL,
 )
 from .docker import Docker
 from .repo import Repo
 from .runtime import Runtime
 from .siren import SirenAPI
-from .logging import configure_default_logging
+from .logging import configure_default_logging, configure_discord_logging
 
 
 app = FastAPI()
@@ -28,6 +29,7 @@ runtime = Runtime(
 @app.on_event("startup")
 async def startup():
     configure_default_logging()
+    configure_discord_logging(WEBHOOK_URL)
     await runtime.connect()
 
 

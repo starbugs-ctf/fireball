@@ -17,3 +17,5 @@ EXPLOIT_REPO_PATH: str = "../exploits-testing"
 
 DOCKER_MAX_CONTAINERS_RUNNING: int = 30
 DOCKER_POLLING_INTERVAL: int = 10
+
+WEBHOOK_URL: str = "https://discordapp.com/api/webhooks/873024285730562088/Jxw4R7GlxzdzNYCRtaO7X-q3-XwsScetdoLgOVV11Sm2PzJwl0fk7ZvSHEh_pgABfBgn"

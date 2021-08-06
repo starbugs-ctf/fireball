@@ -1,8 +1,11 @@
 import asyncio
 import logging
 from typing import Any, Dict
+from asyncio import Queue
 
 import aiohttp
+
+DISCORD_API_RATE_LIMIT = 1 / 50  # 50 requests per second
 
 
 class DiscordHandler(logging.Handler):
@@ -10,19 +13,41 @@ class DiscordHandler(logging.Handler):
         super(DiscordHandler, self).__init__()
         self._webhook_url = webhook_url
         self._session = aiohttp.ClientSession()
+        self._queue: Queue = Queue()
+        self._worker_task = asyncio.create_task(self._worker())
 
     def emit(self, record: logging.LogRecord):
-        data = self._format_message(record)
+        data = self.format(record)
+        self._queue.put_nowait(data)
 
-        # TODO: not really sure what to do with this task thing,
-        # since I cannot await it here
-        asyncio.create_task(self.send_message(data))
+    async def _worker(self):
+        message = ""
+        task = None
 
-    def _format_message(self, record: logging.LogRecord) -> Dict[str, Any]:
-        return {"content": record.getMessage()}
+        async def send():
+            nonlocal task, message
 
-    async def send_message(self, data: Dict[str, Any]):
-        await self._session.post(self._webhook_url, json=data)
+            await asyncio.sleep(DISCORD_API_RATE_LIMIT)
+            task = None
+            await self.send_message(message)
+            message = ""
+
+        while True:
+            data = await self._queue.get()
+            self._queue.task_done()
+            print(data)
+            if task is not None:
+                task.cancel()
+                task = None
+                message += "\n"
+                message += data
+            else:
+                message = data
+
+            task = asyncio.create_task(send())
+
+    async def send_message(self, message: str):
+        await self._session.post(self._webhook_url, json={"content": message})
 
 
 def configure_discord_logging(webhook_url: str):
@@ -30,7 +55,8 @@ def configure_discord_logging(webhook_url: str):
 
     discord_handler = DiscordHandler(webhook_url)
     discord_handler.setLevel(logging.INFO)
-
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    discord_handler.setFormatter(formatter)
     root.addHandler(discord_handler)
 
 

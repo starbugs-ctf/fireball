@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import dateutil
+import dateutil.parser
 import toml
 from aiodocker import Docker
 from aiodocker.containers import DockerContainer
@@ -33,7 +33,7 @@ class TaskStatus:
 
 
 def is_over_timeout(started_at: str, timeout: int):
-    started_at = dateutil.parser.parse(started_at)
+    started_at = parser.parse(started_at)
     if started_at + timedelta(seconds=timeout) > datetime.now():
         return True
     else:

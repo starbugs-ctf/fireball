@@ -169,6 +169,9 @@ class Runtime:
                     zipped = list(zip(statuses, tasks))
                     random.shuffle(zipped)
                     for status, task in zipped:
+                        if isinstance(status, Exception):
+                            continue
+
                         if (
                             running_containers < self.docker_max_running_containers
                             and status.status == TaskStatusEnum.PENDING

@@ -97,7 +97,7 @@ class SirenAPI:
             check(response)
             return await response.json()
 
-    async def update_task(self, task_id: num, data: Dict[str, str]):
+    async def update_task(self, task_id: int, data: Dict[str, str]):
         async with self.client.put(
             self.api_url + f"/api/tasks/{task_id}", data=data
         ) as response:
@@ -105,7 +105,7 @@ class SirenAPI:
             return await response.json()
 
     async def create_flag_submission(
-        self, task_id: num, flag: str, submission_result: str, message: str
+        self, task_id: int, flag: str, submission_result: str, message: str
     ) -> None:
         async with self.client.put(
             self.api_url + "/api/flags",

@@ -43,7 +43,7 @@ class Runtime:
         self.siren = siren_api
         self.exploits = {}
 
-        self.current_round = -1
+        self.current_round = 1
 
         self.teams = {}
         self.problems = {}

@@ -97,7 +97,7 @@ async def git_changed_exploits(path: Path, from_hash: str) -> Set[PurePosixPath]
         if line == "":
             continue
 
-        status, path_str = line.split()
+        status, path_str = line.split(maxsplit=1)
         rel_path = PurePosixPath(path_str)
 
         if len(rel_path.parts) < 3:
@@ -128,7 +128,7 @@ class Repo:
 
     async def connect(self) -> List[Path]:
         self.last_processed_hash = await git_get_hash(self.path)
-        paths = self.path.glob("*/*")
+        paths = self.path.glob("*/*/")
         paths = map(lambda x: Path(x.parts[-2], x.parts[-1]), paths)
         paths = filter(lambda x: not x.parts[-2][0] == ".", paths)
         return list(paths)

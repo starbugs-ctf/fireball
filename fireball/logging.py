@@ -5,7 +5,7 @@ from asyncio import Queue
 
 import aiohttp
 
-DISCORD_API_RATE_LIMIT = 1 / 50  # 50 requests per second
+DISCORD_API_RATE_LIMIT = 1 / 30  # 50 requests per second
 
 
 class DiscordHandler(logging.Handler):
@@ -35,7 +35,6 @@ class DiscordHandler(logging.Handler):
         while True:
             data = await self._queue.get()
             self._queue.task_done()
-            print(data)
             if task is not None:
                 task.cancel()
                 task = None
@@ -55,7 +54,7 @@ def configure_discord_logging(webhook_url: str):
 
     discord_handler = DiscordHandler(webhook_url)
     discord_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    formatter = logging.Formatter("[%(levelname)s] %(name)s: %(message)s")
     discord_handler.setFormatter(formatter)
     root.addHandler(discord_handler)
 

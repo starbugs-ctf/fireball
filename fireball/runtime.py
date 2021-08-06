@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Dict
 import asyncio
 import random
+from aiodocker.exceptions import DockerError
 
 import aiohttp
 
@@ -54,7 +55,22 @@ class Runtime:
         self.docker_max_running_containers = docker_max_running_containers
 
     async def connect(self) -> None:
-        await self.repo.connect()
+        exploit_paths = await self.repo.connect()
+        for path in exploit_paths:
+            chal_name = path.parts[0]
+            exploit_name = path.parts[1]
+            exploit_id = f"{chal_name}:{exploit_name}"
+            logger.info(f"Adding exploit {exploit_id}")
+
+            try:
+                exploit = await Exploit.from_path(
+                    self, self.repo.path / path, exploit_name, chal_name
+                )
+                self.exploits[exploit_id] = exploit
+            except Exception as e:
+                logger.error("Failed to parse %s exploit: %s", exploit_id, e)
+                continue
+
         await self.refresh()
         self.main_loop_task = asyncio.create_task(self.main_loop())
         logger.info("Runtime initialized")
@@ -67,15 +83,15 @@ class Runtime:
         while True:
             async with self.main_loop_lock:
                 logger.debug("Polling docker")
-                containers = self.docker.get_managed_containers()
+                containers = await self.docker.get_managed_containers()
                 tasks = []
 
                 for container in containers:
                     try:
-                        exploit_id = container["Config"]["Labels"][
+                        exploit_id = container["Labels"][
                             "fireball.exploit_id"
                         ]
-                        task_id = int(container["Config"]["Labels"]["fireball.task_id"])
+                        task_id = int(container["Labels"]["fireball.task_id"])
                     except KeyError:
                         logger.warning(
                             "Found a managed container with malformed metadata %s",
@@ -102,10 +118,8 @@ class Runtime:
                     *[task.status() for task in tasks], return_exceptions=True
                 )
 
-                zipped = zip(statuses, tasks)
-
                 running_containers = 0
-                for status, task in zipped:
+                for status, task in zip(statuses, tasks):
                     if isinstance(status, Exception):
                         logger.error(
                             "An error occurred while querying status of %s task: %s",
@@ -117,30 +131,55 @@ class Runtime:
                     if status.status == TaskStatusEnum.RUNNING:
                         running_containers += 1
 
-                    await self.siren.update_task(
-                        task.task_id,
-                        {
-                            "status": status.status,
-                            "stdout": status.stdout,
-                            "stderr": status.stderr,
-                        },
-                    )
+                    if status.status != TaskStatusEnum.PENDING:
+                        await self.siren.update_task(
+                            task.task_id,
+                            {
+                                "status": status.status,
+                                "stdout": status.stdout,
+                                "stderr": status.stderr,
+                            },
+                        )
 
-                zipped = random.shuffle(zipped)
-                for status, task in zip(statuses, tasks):
+                zipped = list(zip(statuses, tasks))
+                random.shuffle(zipped)
+                for status, task in zipped:
                     if (
                         running_containers < self.docker_max_running_containers
                         and status.status == TaskStatusEnum.PENDING
                     ):
-                        await task.container.start()
+                        try:
+                            await task.container.start()
+                            running_containers += 1
+
+                            await self.siren.update_task(
+                                task.task_id,
+                                {
+                                    "status": TaskStatusEnum.RUNNING,
+                                },
+                            )
+                            
+                        except DockerError as e:
+                            logger.error(e)
+                            await task.container.delete(force="true")
+                            await self.siren.update_task(
+                                task.task_id,
+                                {
+                                    "status": TaskStatusEnum.RUNTIME_ERROR,
+                                    "statusMessage": "Failed to start the container"
+                                },
+                            )
+                            continue
+
                         running_containers += 1
 
                         await self.siren.update_task(
                             task.task_id,
                             {
-                                "status": "RUNNING",
+                                "status": TaskStatusEnum.RUNNING,
                             },
                         )
+
 
             await asyncio.sleep(self.docker_poll_interval)
 
@@ -201,13 +240,19 @@ class Runtime:
                 logger.error("Failed to parse %s exploit: %s", exploit_id, e)
                 continue
 
+            try:
+               problem_id = self.problems[chal_name].id
+            except KeyError:
+                logger.warn("Failed to find a problem: %s", chal_name)
+                continue
+
             new_exploit = await self.siren.create_exploit(
                 exploit_name, exploit.docker_image_hash, self.problems[chal_name].id
             )
             logger.debug(f"Created exploits: {new_exploit}")
 
             # Run the updated exploit
-            self.start_exploit(exploit_id)
+            await self.start_exploit(exploit_id)
 
     async def start_exploit(self, exploit_id: str) -> None:
         if self.current_round < 0:
@@ -232,7 +277,7 @@ class Runtime:
                         self.current_round, exploit.docker_image_hash, team.id
                     )
 
-                    self.docker.create_container(
+                    await self.docker.create_container(
                         exploit.docker_image_hash,
                         {
                             "HOST": endpoint.host,

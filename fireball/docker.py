@@ -75,6 +75,6 @@ class Docker:
 
     async def get_managed_containers(self):
         containers = await self.client.containers.list(
-            all=True, filters=json.dumps({"label": "fireball.managed=true"})
+            all=True, filters=json.dumps({"label": ["fireball.managed=true"]})
         )
         return containers

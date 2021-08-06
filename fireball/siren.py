@@ -30,9 +30,9 @@ class Endpoint:
     port: str
 
 
-def check(response):
+async def check(response):
     if response.status != 200:
-        logger.error(response)
+        logger.error("Failed siren request: %s", await response.text())
 
 
 class SirenAPI:
@@ -42,12 +42,12 @@ class SirenAPI:
 
     async def teams(self) -> List[Team]:
         async with self.client.get(self.api_url + "/api/teams") as response:
-            check(response)
+            await check(response)
             return list(map(lambda team_raw: Team(**team_raw), await response.json()))
 
     async def problems(self) -> List[Problem]:
         async with self.client.get(self.api_url + "/api/problems") as response:
-            check(response)
+            await check(response)
             return list(
                 map(lambda problem_raw: Problem(**problem_raw), await response.json())
             )
@@ -55,9 +55,9 @@ class SirenAPI:
     async def delete_exploits(self, exploit_name: str, problem_id: int):
         async with self.client.delete(
             self.api_url + "/api/exploits",
-            data={"name": exploit_name, "problemId": problem_id},
+            json={"name": exploit_name, "problemId": problem_id},
         ) as response:
-            check(response)
+            await check(response)
             return await response.json()
 
     async def create_exploit(
@@ -65,43 +65,43 @@ class SirenAPI:
     ):
         async with self.client.post(
             self.api_url + "/api/exploits",
-            data={
+            json={
                 "name": exploit_name,
                 "key": exploit_key,
                 "problemId": problem_id,
             },
         ) as response:
-            check(response)
+            await check(response)
             return await response.json()
 
     async def endpoint(self, team_id: int, problem_id: int) -> Endpoint:
         async with self.client.post(
             self.api_url + "/api/endpoint",
-            data={
+            json={
                 "teamId": team_id,
                 "problemId": problem_id,
             },
         ) as response:
-            check(response)
+            await check(response)
             return Endpoint(**(await response.json()))
 
     async def create_task(self, round_id: int, exploit_key: str, team_id: int):
         async with self.client.post(
             self.api_url + "/api/tasks",
-            data={
+            json={
                 "roundId": round_id,
                 "exploitKey": exploit_key,
                 "teamId": team_id,
             },
         ) as response:
-            check(response)
+            await check(response)
             return await response.json()
 
     async def update_task(self, task_id: int, data: Dict[str, str]):
         async with self.client.put(
-            self.api_url + f"/api/tasks/{task_id}", data=data
+            self.api_url + f"/api/tasks/{task_id}", json=data
         ) as response:
-            check(response)
+            await check(response)
             return await response.json()
 
     async def create_flag_submission(
@@ -109,12 +109,12 @@ class SirenAPI:
     ) -> None:
         async with self.client.put(
             self.api_url + "/api/flags",
-            data={
+            json={
                 "taskId": task_id,
                 "flag": flag,
                 "submissionResult": submission_result,
                 "message": message,
             },
         ) as response:
-            check(response)
+            await check(response)
             return await response.json()

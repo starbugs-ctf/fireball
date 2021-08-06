@@ -126,8 +126,12 @@ class Repo:
         self.last_processed_hash = ""
         self.branch = branch
 
-    async def connect(self) -> None:
+    async def connect(self) -> List[Path]:
         self.last_processed_hash = await git_get_hash(self.path)
+        paths = self.path.glob("*/*")
+        paths = map(lambda x: Path(x.parts[-2], x.parts[-1]), paths)
+        paths = filter(lambda x: not x.parts[-2][0] == ".", paths)
+        return list(paths)
 
     async def scan(self) -> Optional[RepoScanResult]:
         await git_fetch(self.path)

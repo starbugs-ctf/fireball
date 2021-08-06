@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TaskStatus:
     status: str  # PENDING, RUNNING, OKAY, RUNTIME_ERROR, TIMEOUT
-    flag: Optional[str] = None
     stdout: str
     stderr: str
+    flag: Optional[str] = None
 
 
 def is_over_timeout(started_at: str, timeout: int):

@@ -5,6 +5,8 @@ from .docker import Docker
 from .repo import Repo
 from .runtime import Runtime
 from .siren import SirenAPI
+from .logging import configure_default_logging
+
 
 app = FastAPI()
 
@@ -17,6 +19,7 @@ runtime = Runtime(
 
 @app.on_event("startup")
 async def startup():
+    configure_default_logging()
     await runtime.connect()
 
 

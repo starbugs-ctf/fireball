@@ -1,4 +1,5 @@
 import logging
+from pydantic.dataclasses import dataclass
 from typing import List
 
 import aiohttp
@@ -31,7 +32,7 @@ class Endpoint:
 
 def check(response):
     if response.status != 200:
-        log.error(response)
+        logger.error(response)
 
 
 class SirenAPI:

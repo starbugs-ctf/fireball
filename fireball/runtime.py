@@ -48,6 +48,7 @@ class Runtime:
         await self.repo.connect()
         await self.refresh()
         self.main_loop_task = asyncio.create_task(self.main_loop())
+        logger.info("Runtime initialized")
 
     async def disconnect(self) -> None:
         await self.main_loop_lock.acquire()
@@ -56,6 +57,7 @@ class Runtime:
     async def main_loop(self):
         while True:
             async with self.main_loop_lock:
+                logger.debug("Polling docker")
                 containers = self.docker.get_managed_containers()
                 tasks = []
 
@@ -150,6 +152,7 @@ class Runtime:
             except Exception as e:
                 # TODO: proper logging
                 logger.error("%s", e)
+                continue
 
             new_exploit = await self.siren.create_exploit(
                 exploit_name, exploit.docker_image_hash, self.problems[chal_name].id
@@ -164,10 +167,10 @@ class Runtime:
             # Skip if the contest is not running right now
             pass
 
-        logger.info(f"Running exploit {exploit_id}")
-
         exploit = self.exploits[exploit_id]
         if exploit.enabled:
+            logger.info(f"Running exploit {exploit_id}")
+
             for team in self.teams.values():
                 if team.slug not in exploit.ignore_teams:
                     logger.debug(

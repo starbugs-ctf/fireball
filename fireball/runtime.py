@@ -80,6 +80,7 @@ class Runtime:
 
             await self.refresh()
             self.current_round = await self.siren.get_current_round()
+            logger.info("Fetched round id %s from siren", self.current_round)
             self.main_loop_task = asyncio.create_task(self.main_loop())
             logger.info("Runtime initialized")
 
@@ -205,15 +206,15 @@ class Runtime:
 
     async def refresh(self) -> None:
         self.teams.clear()
-        logger.info("=== Teams ===")
+        # logger.info("=== Teams ===")
         for team in await self.siren.teams():
-            logger.info(team)
+            # logger.info(team)
             self.teams[team.slug] = team
 
         self.problems.clear()
-        logger.info("=== Problem ===")
+        # logger.info("=== Problem ===")
         for problem in await self.siren.problems():
-            logger.info(problem)
+            # logger.info(problem)
             self.problems[problem.slug] = problem
 
     async def game_tick(self, round_id: int) -> None:

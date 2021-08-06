@@ -1,6 +1,6 @@
 import logging
 from pydantic.dataclasses import dataclass
-from typing import List
+from typing import Dict, List
 
 import aiohttp
 
@@ -92,6 +92,28 @@ class SirenAPI:
                 "roundId": round_id,
                 "exploitKey": exploit_key,
                 "teamId": team_id,
+            },
+        ) as response:
+            check(response)
+            return await response.json()
+
+    async def update_task(self, task_id: num, data: Dict[str, str]):
+        async with self.client.put(
+            self.api_url + f"/api/tasks/{task_id}", data=data
+        ) as response:
+            check(response)
+            return await response.json()
+
+    async def create_flag_submission(
+        self, task_id: num, flag: str, submission_result: str, message: str
+    ) -> None:
+        async with self.client.put(
+            self.api_url + "/api/flags",
+            data={
+                "taskId": task_id,
+                "flag": flag,
+                "submissionResult": submission_result,
+                "message": message,
             },
         ) as response:
             check(response)

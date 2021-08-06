@@ -87,7 +87,7 @@ class Runtime:
                 for status, task in zip(statuses, tasks):
                     if isinstance(status, Exception):
                         logger.error(
-                            "An error occured while querying status of %s task: %s",
+                            "An error occurred while querying status of %s task: %s",
                             task.id,
                             status,
                         )

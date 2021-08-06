@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict
 import asyncio
+import random
 
 import aiohttp
 
@@ -74,9 +75,10 @@ class Runtime:
                         exploit_id = container["Config"]["Labels"][
                             "fireball.exploit_id"
                         ]
+                        task_id = int(container["Config"]["Labels"]["fireball.task_id"])
                     except KeyError:
                         logger.warning(
-                            "Found a managed container without exploit_id: %s",
+                            "Found a managed container with malformed metadata %s",
                             container.id,
                         )
                         continue
@@ -84,17 +86,26 @@ class Runtime:
                     if exploit_id not in self.exploits:
                         logger.warning("Couldn't find exploit with id:", exploit_id)
                         await container.delete(force="true")
+                        await self.siren.update_task(
+                            task_id,
+                            {
+                                "status": "RUNTIME_ERROR",
+                                "statusMessage": "Dangling exploit",
+                            },
+                        )
                         continue
 
                     exploit = self.exploits[exploit_id]
-                    tasks.append(Task(exploit, container))
+                    tasks.append(Task(task_id, exploit, container))
 
                 statuses = await asyncio.gather(
                     *[task.status() for task in tasks], return_exceptions=True
                 )
 
+                zipped = zip(statuses, tasks)
+
                 running_containers = 0
-                for status, task in zip(statuses, tasks):
+                for status, task in zipped:
                     if isinstance(status, Exception):
                         logger.error(
                             "An error occurred while querying status of %s task: %s",
@@ -106,8 +117,16 @@ class Runtime:
                     if status.status == TaskStatusEnum.RUNNING:
                         running_containers += 1
 
-                    # TODO: send status to siren
+                    await self.siren.update_task(
+                        task.task_id,
+                        {
+                            "status": status.status,
+                            "stdout": status.stdout,
+                            "stderr": status.stderr,
+                        },
+                    )
 
+                zipped = random.shuffle(zipped)
                 for status, task in zip(statuses, tasks):
                     if (
                         running_containers < self.docker_max_running_containers
@@ -115,7 +134,13 @@ class Runtime:
                     ):
                         await task.container.start()
                         running_containers += 1
-                        # TODO: send status to siren
+
+                        await self.siren.update_task(
+                            task.task_id,
+                            {
+                                "status": "RUNNING",
+                            },
+                        )
 
             await asyncio.sleep(self.docker_poll_interval)
 
@@ -215,6 +240,6 @@ class Runtime:
                         },
                         {
                             "fireball.exploit_id": exploit_id,
-                            "fireball.task_id": task["id"],
+                            "fireball.task_id": str(task["id"]),
                         },
                     )

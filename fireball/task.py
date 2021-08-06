@@ -66,12 +66,13 @@ async def get_logs(container: DockerContainer) -> Tuple[str, str]:
 
 
 class Task:
-    def __init__(self, exploit: Exploit, container: DockerContainer):
+    def __init__(self, task_id: int, exploit: Exploit, container: DockerContainer):
+        self.task_id = task_id
         self.exploit = exploit
         self.container = container
 
     @property
-    def id(self):
+    def container_id(self):
         return self.container.id
 
     async def status(self):

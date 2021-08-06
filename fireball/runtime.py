@@ -246,35 +246,36 @@ class Runtime:
             )
             logger.debug(f"Deleted exploits: {delete_exploits_result}")
 
-        for path in result.updated_exploits:
-            chal_name = path.parts[0]
-            exploit_name = path.parts[1]
-            exploit_id = f"{chal_name}:{exploit_name}"
-            logger.info(f"Updating exploit {exploit_id}")
+        async with self.main_loop_lock:
+            for path in result.updated_exploits:
+                chal_name = path.parts[0]
+                exploit_name = path.parts[1]
+                exploit_id = f"{chal_name}:{exploit_name}"
+                logger.info(f"Updating exploit {exploit_id}")
 
-            try:
-                exploit = await Exploit.from_path(
-                    self, self.repo.path / path, exploit_name, chal_name
+                try:
+                    exploit = await Exploit.from_path(
+                        self, self.repo.path / path, exploit_name, chal_name
+                    )
+                    self.exploits[exploit_id] = exploit
+                except Exception as e:
+                    # TODO: proper logging
+                    logger.error("Failed to parse %s exploit: %s", exploit_id, e)
+                    continue
+
+                try:
+                    problem_id = self.problems[chal_name].id
+                except KeyError:
+                    logger.warn("Failed to find a problem: %s", chal_name)
+                    continue
+
+                new_exploit = await self.siren.create_exploit(
+                    exploit_name, exploit.docker_image_hash, self.problems[chal_name].id
                 )
-                self.exploits[exploit_id] = exploit
-            except Exception as e:
-                # TODO: proper logging
-                logger.error("Failed to parse %s exploit: %s", exploit_id, e)
-                continue
+                logger.debug(f"Created exploits: {new_exploit}")
 
-            try:
-                problem_id = self.problems[chal_name].id
-            except KeyError:
-                logger.warn("Failed to find a problem: %s", chal_name)
-                continue
-
-            new_exploit = await self.siren.create_exploit(
-                exploit_name, exploit.docker_image_hash, self.problems[chal_name].id
-            )
-            logger.debug(f"Created exploits: {new_exploit}")
-
-            # Run the updated exploit
-            await self.start_exploit(exploit_id)
+                # Run the updated exploit
+                await self.start_exploit(exploit_id)
 
     async def start_exploit(self, exploit_id: str) -> None:
         if self.current_round < 0:

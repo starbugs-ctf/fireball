@@ -138,7 +138,7 @@ class Runtime:
                         if isinstance(status, Exception):
                             logger.error(
                                 "An error occurred while querying status of %s task: %s",
-                                task.id,
+                                task.task_id,
                                 status,
                             )
                             continue

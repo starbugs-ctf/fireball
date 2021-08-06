@@ -200,15 +200,6 @@ class Runtime:
                             )
                             continue
 
-                        running_containers += 1
-
-                        await self.siren.update_task(
-                            task.task_id,
-                            {
-                                "status": TaskStatusEnum.RUNNING,
-                            },
-                        )
-
             await asyncio.sleep(self.docker_poll_interval)
 
     async def refresh(self) -> None:

@@ -118,3 +118,10 @@ class SirenAPI:
         ) as response:
             await check(response)
             return await response.json()
+
+    async def get_current_round(self) -> None:
+        async with self.client.get(
+            self.api_url + "/api/current_round",
+        ) as response:
+            await check(response)
+            return (await response.json())["round"]

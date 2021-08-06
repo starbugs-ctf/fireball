@@ -42,7 +42,7 @@ def is_over_timeout(started_at: str, timeout: int):
 
 async def extract_flag(container: DockerContainer) -> Optional[str]:
     try:
-        tar = await container.get_archive("/flag")
+        tar = await container.get_archive("/tmp/flag")
     except DockerError as e:
         if e.status == 404:
             return None

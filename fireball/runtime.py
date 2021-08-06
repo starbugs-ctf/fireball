@@ -78,6 +78,7 @@ class Runtime:
                 continue
 
         await self.refresh()
+        self.current_round = await self.siren.get_current_round()
         self.main_loop_task = asyncio.create_task(self.main_loop())
         logger.info("Runtime initialized")
 

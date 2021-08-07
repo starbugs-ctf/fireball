@@ -208,7 +208,7 @@ class Runtime:
                     self.problems[normalized_chal_name].id,
                     self.teams[task.team_slug].id,
                 )
-                print(successful_exploit)
+                logger.debug("Recieved %s from siren", successful_exploit)
 
                 # Cancel the task if there is successful exploit
                 if successful_exploit["exists"]:

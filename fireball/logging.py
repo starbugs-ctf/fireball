@@ -19,7 +19,7 @@ class DiscordHandler(logging.Handler):
     def emit(self, record: logging.LogRecord):
         data = self.format(record)
         if record.levelno == logging.WARN or record.levelno == logging.ERROR:
-            data = "[<@873600361158561823>] " + data
+            data = "[<@&873600361158561823>] " + data
         self._queue.put_nowait(data)
 
     async def _worker(self):

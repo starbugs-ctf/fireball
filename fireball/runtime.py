@@ -130,9 +130,6 @@ class Runtime:
         return Task(task_id, exploit, container, team_slug)
 
     async def poll_docker(self):
-        print(self.teams)
-        print(self.problems)
-
         logger.debug("Polling docker")
         containers = await self.docker.get_managed_containers()
 
@@ -210,6 +207,7 @@ class Runtime:
                     self.problems[normalized_chal_name].id,
                     self.teams[task.team_slug].id,
                 )
+                print(successful_exploit)
 
                 # Cancel the task if there is successful exploit
                 if successful_exploit["exists"]:

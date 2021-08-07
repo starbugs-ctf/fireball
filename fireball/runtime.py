@@ -143,6 +143,10 @@ class Runtime:
         tasks = filter(lambda x: x.status is not None, tasks)
         tasks: List[Task] = list(tasks)
 
+        delay_stealth = {}
+        for team in self.teams:
+            delay_stealth[team.slug] = False
+
         running_containers = 0
         for task in tasks:
             status = task.status
@@ -162,12 +166,56 @@ class Runtime:
                             task.container_id,
                         )
 
+            if (
+                not task.exploit.chal_name.endswith("stealth")
+                and (
+                    status.status == TaskStatusEnum.PENDING
+                    or status.status == TaskStatusEnum.RUNNING
+                )
+                and task.team_slug != self.current_team
+            ):
+                # outstanding non-stealth exploit exists
+                delay_stealth[task.team_slug] = True
+
         random.shuffle(tasks)
         for task in tasks:
             if (
                 running_containers < self.docker_max_running_containers
                 and task.status.status == TaskStatusEnum.PENDING
             ):
+                # Delay the stealth exploit when there are outstanding
+                # non-stealth exploits targetting the same team
+                if (
+                    task.exploit.chal_name.endswith("stealth")
+                    and delay_stealth[task.team_slug]
+                ):
+                    continue
+
+                # Otherwise, check if there is known successful exploit
+                # Note: there is a nondeterminism here due to containers that
+                # run in parallel, but we don't really care 
+                successful_exploit = await self.siren.successful_exploit(
+                    self.current_round,
+                    self.problems[task.exploit.chal_name].id,
+                    self.teams[task.team_slug].id,
+                )
+
+                # Cancel the task if there is successful exploit
+                if successful_exploit["exists"]:
+                    if successful_exploit["fromDuplicate"]:
+                        # TODO: log warning
+                        pass
+
+                    await self.siren.update_task(
+                        task.task_id,
+                        {
+                            "status": "CANCELED",
+                            "statusMessage": "already got flag for this problem",
+                        },
+                    )
+                    await task.delete()
+                    continue
+
                 try:
                     await task.start()
                     running_containers += 1
@@ -318,6 +366,7 @@ class Runtime:
             message = res["message"]
             additionalInfo = ""
 
+            # TODO: move this mapping to defcon module?
             if message == "ALREADY_SUBMITTED":
                 message = "DUPLICATE"
             elif message == "INCORRECT":
@@ -332,7 +381,10 @@ class Runtime:
 
         else:
             await self.siren.create_flag_submission(
-                task.task_id, task.status.flag, "SKIPPED", "We don't attack our own service"
+                task.task_id,
+                task.status.flag,
+                "SKIPPED",
+                "targeting our own service",
             )
 
         return True

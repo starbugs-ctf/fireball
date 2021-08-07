@@ -1,9 +1,10 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, List, Optional
 import asyncio
 import random
 from aiodocker.exceptions import DockerError
+from aiodocker.containers import DockerContainer
 
 import aiohttp
 
@@ -39,6 +40,7 @@ class Runtime:
         defcon_api: DefconAPI,
         docker_poll_interval: int,
         docker_max_running_containers: int,
+        current_team: str,
     ):
         self.repo = repo
         self.docker = docker
@@ -47,12 +49,13 @@ class Runtime:
         self.exploits = {}
 
         self.current_round = 1
+        self.current_team = current_team
 
         self.teams = {}
         self.problems = {}
 
         self.main_loop_lock = asyncio.Lock()
-        self.main_loop_task = None
+        self.main_loop_task: Optional[asyncio.Task] = None
 
         self.docker_poll_interval = docker_poll_interval
         self.docker_max_running_containers = docker_max_running_containers
@@ -95,115 +98,89 @@ class Runtime:
         await self.main_loop_lock.acquire()
         self.main_loop_task.cancel()
 
+    async def get_task_from_container(
+        self, container: DockerContainer
+    ) -> Optional[Task]:
+        try:
+            exploit_id = container["Labels"]["fireball.exploit_id"]
+            task_id = int(container["Labels"]["fireball.task_id"])
+            team_slug = container["Labels"]["fireball.team_slug"]
+        except KeyError:
+            logger.warning(
+                "Found a managed container with malformed metadata %s",
+                container.id,
+            )
+            return None
+
+        if exploit_id not in self.exploits:
+            logger.warning("Couldn't find exploit with id:", exploit_id)
+            await container.delete(force="true")
+            await self.siren.update_task(
+                task_id,
+                {
+                    "status": "RUNTIME_ERROR",
+                    "statusMessage": "Dangling exploit",
+                },
+            )
+            return None
+
+        exploit = self.exploits[exploit_id]
+        return Task(task_id, exploit, container, team_slug)
+
+    async def poll_docker(self):
+        logger.debug("Polling docker")
+        containers = await self.docker.get_managed_containers()
+
+        tasks = map(self.get_task_from_container, containers)
+        tasks = filter(lambda x: x is not None, tasks)
+        tasks: List[Task] = list(tasks)
+
+        await asyncio.gather(*[task.fetch_status() for task in tasks])
+
+        # Filter ones where we failed to check the status
+        tasks = filter(lambda x: x.status is not None, tasks)
+        tasks: List[Task] = list(tasks)
+
+        running_containers = 0
+        for task in tasks:
+            status = task.status
+            if status.status == TaskStatusEnum.RUNNING:
+                running_containers += 1
+
+            if status.status != TaskStatusEnum.PENDING:
+                await self.update_siren_task(task)
+
+                if status.status == TaskStatusEnum.OKAY:
+                    if status.flag is not None:
+                        await self.submit_flag(task)
+                        await task.delete()
+                    else:
+                        logger.error(
+                            "Container has finished, but flag wasn't found: %s",
+                            task.container_id,
+                        )
+
+        random.shuffle(tasks)
+        for task in tasks:
+            if (
+                running_containers < self.docker_max_running_containers
+                and task.status.status == TaskStatusEnum.PENDING
+            ):
+                try:
+                    await task.start()
+                    running_containers += 1
+                    await self.update_siren_task(task)
+                except DockerError as e:
+                    logger.error("Failed to start %s task: %s", task.task_id, e)
+                    await task.delete(force=True)
+                    await self.update_siren_task(task, "Failed to start the container")
+                    continue
+
     async def main_loop(self):
         while True:
             async with self.main_loop_lock:
                 try:
-                    logger.debug("Polling docker")
-                    containers = await self.docker.get_managed_containers()
-                    tasks = []
-
-                    for container in containers:
-                        try:
-                            exploit_id = container["Labels"]["fireball.exploit_id"]
-                            task_id = int(container["Labels"]["fireball.task_id"])
-                        except KeyError:
-                            logger.warning(
-                                "Found a managed container with malformed metadata %s",
-                                container.id,
-                            )
-                            continue
-
-                        if exploit_id not in self.exploits:
-                            logger.warning("Couldn't find exploit with id:", exploit_id)
-                            await container.delete(force="true")
-                            await self.siren.update_task(
-                                task_id,
-                                {
-                                    "status": "RUNTIME_ERROR",
-                                    "statusMessage": "Dangling exploit",
-                                },
-                            )
-                            continue
-
-                        exploit = self.exploits[exploit_id]
-                        tasks.append(Task(task_id, exploit, container))
-
-                    statuses = await asyncio.gather(
-                        *[task.status() for task in tasks], return_exceptions=True
-                    )
-
-                    running_containers = 0
-                    for status, task in zip(statuses, tasks):
-                        if isinstance(status, Exception):
-                            logger.error(
-                                "An error occurred while querying status of %s task: %s",
-                                task.task_id,
-                                status,
-                            )
-                            continue
-
-                        if status.status == TaskStatusEnum.RUNNING:
-                            running_containers += 1
-
-                        if status.status != TaskStatusEnum.PENDING:
-                            await self.siren.update_task(
-                                task.task_id,
-                                {
-                                    "status": status.status,
-                                    "stdout": status.stdout,
-                                    "stderr": status.stderr,
-                                },
-                            )
-
-                            if status.status == TaskStatusEnum.OKAY:
-                                if status.flag != None:
-                                    await self.submit_flag(task, status)
-                                    await task.container.delete()
-                                else:
-                                    logger.error(
-                                        "Container has finished, but flag wasn't found: %s",
-                                        task.container_id,
-                                    )
-
-                    zipped = list(zip(statuses, tasks))
-                    random.shuffle(zipped)
-                    for status, task in zipped:
-                        if isinstance(status, Exception):
-                            continue
-
-                        if (
-                            running_containers < self.docker_max_running_containers
-                            and status.status == TaskStatusEnum.PENDING
-                        ):
-                            try:
-                                logger.info(
-                                    "Running %s, task_id: %s",
-                                    task.exploit.name,
-                                    task.task_id,
-                                )
-                                await task.container.start()
-                                running_containers += 1
-
-                                await self.siren.update_task(
-                                    task.task_id,
-                                    {
-                                        "status": TaskStatusEnum.RUNNING,
-                                    },
-                                )
-
-                            except DockerError as e:
-                                logger.error(e)
-                                await task.container.delete(force="true")
-                                await self.siren.update_task(
-                                    task.task_id,
-                                    {
-                                        "status": TaskStatusEnum.RUNTIME_ERROR,
-                                        "statusMessage": "Failed to start the container",
-                                    },
-                                )
-                                continue
-
+                    await self.poll_docker()
                 except Exception as e:
                     logger.error("Main loop crashed %s", e)
 
@@ -211,15 +188,11 @@ class Runtime:
 
     async def refresh(self) -> None:
         self.teams.clear()
-        # logger.info("=== Teams ===")
         for team in await self.siren.teams():
-            # logger.info(team)
             self.teams[team.slug] = team
 
         self.problems.clear()
-        # logger.info("=== Problem ===")
         for problem in await self.siren.problems():
-            # logger.info(problem)
             self.problems[problem.slug] = problem
 
     async def game_tick(self, round_id: int) -> None:
@@ -284,7 +257,7 @@ class Runtime:
     async def start_exploit(self, exploit_id: str) -> None:
         if self.current_round < 0:
             # Skip if the contest is not running right now
-            pass
+            return
 
         exploit = self.exploits[exploit_id]
         if exploit.enabled:
@@ -293,7 +266,7 @@ class Runtime:
             for team in self.teams.values():
                 if team.slug not in exploit.ignore_teams:
                     logger.debug(
-                        f"Running exploit {exploit_id} against team {team.name}"
+                        f"Scheduling exploit {exploit_id} against team {team.name}"
                     )
 
                     endpoint = await self.siren.endpoint(
@@ -313,21 +286,32 @@ class Runtime:
                         {
                             "fireball.exploit_id": exploit_id,
                             "fireball.task_id": str(task["id"]),
+                            "fireball.team_slug": team.slug,
                         },
                     )
 
-    async def submit_flag(self, task: Task, status: TaskStatus) -> bool:
-        logger.info("Submitting flag '%s' for %s", status.flag, task.exploit.chal_name)
-        try:
-            res = await self.defcon.submit_flag(status.flag)
-        except Exception as e:
-            logger.error("Failed to submit flag to defcon api: %s", e)
-            return False
+    async def submit_flag(self, task: Task) -> bool:
+        assert task.status is not None
+        assert task.status.flag is not None
 
-        if res is not None:
-            additionalInfo = ""
+        logger.info(
+            "Submitting flag '%s' for %s", task.status.flag, task.exploit.chal_name
+        )
+        is_our_flag = task.team_slug == self.current_team
+
+        if not is_our_flag:
+            try:
+                res = await self.defcon.submit_flag(task.status.flag)
+            except Exception as e:
+                logger.error("Failed to submit flag to defcon api: %s", e)
+                return False
+
+            if res is None:
+                return False
 
             message = res["message"]
+            additionalInfo = ""
+
             if message == "ALREADY_SUBMITTED":
                 message = "DUPLICATE"
             elif message == "INCORRECT":
@@ -337,8 +321,25 @@ class Runtime:
                 additionalInfo = "Service is inactive"
 
             await self.siren.create_flag_submission(
-                task.task_id, status.flag, message, additionalInfo
+                task.task_id, task.status.flag, message, additionalInfo
             )
-            return True
 
-        return False
+        else:
+            await self.siren.create_flag_submission(
+                task.task_id, task.status.flag, "SKIPPED", ""
+            )
+
+        return True
+
+    async def update_siren_task(self, task: Task, message: str):
+        assert task.status is not None
+        status = task.status
+        await self.siren.update_task(
+            task.task_id,
+            {
+                "status": status.status,
+                "stdout": status.stdout,
+                "stderr": status.stderr,
+                "statusMessage": message,
+            },
+        )

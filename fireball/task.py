@@ -1,15 +1,15 @@
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 import dateutil.parser
 import toml
 from aiodocker import Docker
 from aiodocker.containers import DockerContainer
 from aiodocker.exceptions import DockerError
-from pydantic.dataclasses import dataclass
 
 from .exploit import Exploit
 
@@ -33,8 +33,8 @@ class TaskStatus:
 
 
 def is_over_timeout(started_at: str, timeout: int):
-    started_at = dateutil.parser.parse(started_at)
-    if started_at + timedelta(seconds=timeout) > datetime.now():
+    started_at_dt: datetime = dateutil.parser.parse(started_at)
+    if started_at_dt + timedelta(seconds=timeout) > datetime.now(timezone.utc):
         return True
     else:
         return False
@@ -66,16 +66,51 @@ async def get_logs(container: DockerContainer) -> Tuple[str, str]:
 
 
 class Task:
-    def __init__(self, task_id: int, exploit: Exploit, container: DockerContainer):
+    task_id: int
+    exploit: Exploit
+    container: DockerContainer
+    team_slug: str
+    status: Optional[TaskStatus]
+
+    def __init__(
+        self, task_id: int, exploit: Exploit, container: DockerContainer, team_slug: str
+    ):
         self.task_id = task_id
         self.exploit = exploit
         self.container = container
+        self.team_slug = team_slug
+        self.status = None
 
     @property
     def container_id(self):
         return self.container.id
 
-    async def status(self):
+    async def start(self):
+        logger.info(
+            "Running %s against %s, task_id: %s",
+            self.exploit.name,
+            self.team_slug,
+            self.task_id,
+        )
+        await self.container.start()
+
+    async def delete(self, force: bool = False):
+        if force:
+            await self.container.delete(force="true")
+        else:
+            await self.container.delete()
+
+    async def fetch_status(self) -> None:
+        try:
+            self.status = await self._fetch_status()
+        except Exception as e:
+            logger.error(
+                "An error occurred while querying status of %s task: %s",
+                self.task_id,
+                e,
+            )
+
+    async def _fetch_status(self) -> TaskStatus:
         # https://docs.docker.com/engine/api/v1.41/#operation/ContainerInspect
         stats = await self.container.show()
         stdout, stderr = await get_logs(self.container)

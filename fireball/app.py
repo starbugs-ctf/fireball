@@ -9,6 +9,7 @@ from .config import (
     WEBHOOK_URL,
     EXPLOIT_REPO_BRANCH,
     DEFCON_API,
+    CURRENT_TEAM_SLUG,
 )
 from .docker import Docker
 from .repo import Repo
@@ -27,6 +28,7 @@ runtime = Runtime(
     DefconAPI(DEFCON_API),
     DOCKER_POLLING_INTERVAL,
     DOCKER_MAX_CONTAINERS_RUNNING,
+    CURRENT_TEAM_SLUG,
 )
 
 

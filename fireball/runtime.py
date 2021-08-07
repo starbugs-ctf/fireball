@@ -149,6 +149,7 @@ class Runtime:
 
         delay_stealth = {}
         for team in self.teams.items():
+            print(team)
             delay_stealth[team.slug] = {}
             for problem in self.problems.items():
                 delay_stealth[team.slug][problem.slug] = False

@@ -170,12 +170,13 @@ class Runtime:
                 try:
                     await task.start()
                     running_containers += 1
-                    await self.update_siren_task(task)
                 except DockerError as e:
                     logger.error("Failed to start %s task: %s", task.task_id, e)
-                    await task.delete(force=True)
                     await self.update_siren_task(task, "Failed to start the container")
+                    await task.delete(force=True)
                     continue
+
+                await self.update_siren_task(task)
 
     async def main_loop(self):
         while True:

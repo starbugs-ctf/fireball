@@ -33,7 +33,8 @@ class TaskStatus:
 
 
 def is_over_timeout(started_at: str, timeout: int):
-    started_at_dt: datetime = dateutil.parser.parse(started_at)
+    started_at_dt = dateutil.parser.parse(started_at)
+    print("lol", started_at_dt)
     if started_at_dt + timedelta(seconds=timeout) > datetime.now(timezone.utc):
         return True
     else:
@@ -119,6 +120,7 @@ class Task:
         status = stats["State"]["Status"]
 
         if status == "running":
+            print(stats["State"])
             if is_over_timeout(stats["State"]["StartedAt"], self.exploit.timeout):
                 await self.container.delete()
                 return TaskStatus(

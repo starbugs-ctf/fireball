@@ -168,6 +168,7 @@ class Runtime:
                             "Container has finished, but flag wasn't found: %s",
                             task.container_id,
                         )
+                        await task.delete()
 
             if (
                 not task.exploit.chal_name.endswith("stealth")

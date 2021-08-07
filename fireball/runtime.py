@@ -145,7 +145,9 @@ class Runtime:
 
         delay_stealth = {}
         for team in self.teams:
-            delay_stealth[team.slug] = False
+            delay_stealth[team.slug] = {}
+            for problem in self.problems:
+                delay_stealth[team.slug][problem.slug] = False
 
         running_containers = 0
         for task in tasks:
@@ -175,7 +177,7 @@ class Runtime:
                 and task.team_slug != self.current_team
             ):
                 # outstanding non-stealth exploit exists
-                delay_stealth[task.team_slug] = True
+                delay_stealth[task.team_slug][task.exploit.chal_name] = True
 
         random.shuffle(tasks)
         for task in tasks:
@@ -183,11 +185,16 @@ class Runtime:
                 running_containers < self.docker_max_running_containers
                 and task.status.status == TaskStatusEnum.PENDING
             ):
+                if task.exploit.chal_name.endswith("stealth"):
+                    normalized_chal_name = task.exploit.chal_name[:-len("-stealth")]
+                else:
+                    normalized_chal_name = task.exploit.chal_name
+
                 # Delay the stealth exploit when there are outstanding
                 # non-stealth exploits targetting the same team
                 if (
                     task.exploit.chal_name.endswith("stealth")
-                    and delay_stealth[task.team_slug]
+                    and delay_stealth[task.team_slug][normalized_chal_name]
                 ):
                     continue
 
@@ -196,7 +203,7 @@ class Runtime:
                 # run in parallel, but we don't really care 
                 successful_exploit = await self.siren.successful_exploit(
                     self.current_round,
-                    self.problems[task.exploit.chal_name].id,
+                    self.problems[normalized_chal_name].id,
                     self.teams[task.team_slug].id,
                 )
 

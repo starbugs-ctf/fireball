@@ -120,7 +120,7 @@ class Task:
 
         if status == "running":
             if is_over_timeout(stats["State"]["StartedAt"], self.exploit.timeout):
-                await self.container.delete()
+                await self.delete(force=True)
                 return TaskStatus(
                     status=TaskStatusEnum.TIMEOUT, stdout=stdout, stderr=stderr
                 )

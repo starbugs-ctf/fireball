@@ -132,6 +132,7 @@ class Runtime:
         containers = await self.docker.get_managed_containers()
 
         tasks = map(self.get_task_from_container, containers)
+        tasks = await asyncio.gather(*tasks)
         tasks = filter(lambda x: x is not None, tasks)
         tasks: List[Task] = list(tasks)
 

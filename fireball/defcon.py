@@ -15,8 +15,7 @@ class DefconAPI:
     async def submit_flag(self, flag: str):
         if self.api_url is None:
             logger.error("Failed to submit flag, defcon url is not defined")
-            # return None
-            return {"message": "CORRECT"}
+            return None
 
         async with self.client.post(
             self.api_url + "/api/submit_flag/" + flag,

@@ -93,12 +93,15 @@ class Task:
             self.task_id,
         )
         await self.container.start()
+        await self._fetch_status()
 
     async def delete(self, force: bool = False):
         if force:
             await self.container.delete(force="true")
         else:
             await self.container.delete()
+
+        await self._fetch_status()
 
     async def fetch_status(self) -> None:
         try:

@@ -332,7 +332,7 @@ class Runtime:
 
         return True
 
-    async def update_siren_task(self, task: Task, message: str):
+    async def update_siren_task(self, task: Task, message: str = ""):
         assert task.status is not None
         status = task.status
         await self.siren.update_task(

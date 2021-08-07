@@ -147,9 +147,9 @@ class Runtime:
         tasks: List[Task] = list(tasks)
 
         delay_stealth = {}
-        for team in self.teams:
+        for team in self.teams.items():
             delay_stealth[team.slug] = {}
-            for problem in self.problems:
+            for problem in self.problems.items():
                 delay_stealth[team.slug][problem.slug] = False
 
         running_containers = 0

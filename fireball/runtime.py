@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 import asyncio
 import random
+import traceback
 from aiodocker.exceptions import DockerError
 from aiodocker.containers import DockerContainer
 
@@ -244,6 +245,7 @@ class Runtime:
                     await self.poll_docker()
                 except Exception as e:
                     logger.error("Main loop crashed %s", e)
+                    traceback.print_exc()
 
             await asyncio.sleep(self.docker_poll_interval)
 

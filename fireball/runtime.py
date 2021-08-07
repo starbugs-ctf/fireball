@@ -325,14 +325,19 @@ class Runtime:
             return False
 
         if res is not None:
+            additionalInfo = ""
+
             message = res["message"]
             if message == "ALREADY_SUBMITTED":
                 message = "DUPLICATE"
             elif message == "INCORRECT":
                 message = "WRONG"
+            elif message == "SERVICE_INACTIVE":
+                message = "UNKNOWN_ERROR"
+                additionalInfo = "Service is inactive"
 
             await self.siren.create_flag_submission(
-                task.task_id, status.flag, message, ""
+                task.task_id, status.flag, message, additionalInfo
             )
             return True
 

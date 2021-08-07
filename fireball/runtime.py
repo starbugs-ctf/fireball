@@ -332,7 +332,7 @@ class Runtime:
 
         else:
             await self.siren.create_flag_submission(
-                task.task_id, task.status.flag, "SKIPPED", ""
+                task.task_id, task.status.flag, "SKIPPED", "We don't attack our own service"
             )
 
         return True

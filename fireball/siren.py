@@ -107,7 +107,7 @@ class SirenAPI:
 
     async def create_flag_submission(
         self, task_id: int, flag: str, submission_result: str, message: str
-    ) -> None:
+    ):
         async with self.client.post(
             self.api_url + "/api/flags",
             json={
@@ -120,9 +120,16 @@ class SirenAPI:
             await check(response)
             return await response.json()
 
-    async def get_current_round(self) -> None:
+    async def get_current_round(self) -> int:
         async with self.client.get(
             self.api_url + "/api/current_round",
         ) as response:
             await check(response)
             return (await response.json())["round"]
+
+    async def successful_exploit(self, round_id: int, problem_id: int, team_id: int):
+        async with self.client.post(
+            self.api_url + "/api/successful_exploit",
+        ) as response:
+            await check(response)
+            return await response.json()

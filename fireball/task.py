@@ -34,7 +34,7 @@ class TaskStatus:
 
 def is_over_timeout(started_at: str, timeout: int):
     started_at_dt = dateutil.parser.parse(started_at)
-    print("lol", started_at_dt)
+    print("lol", started_at_dt, timedelta(seconds=timeout), datetime.now(timezone.utc))
     if started_at_dt + timedelta(seconds=timeout) > datetime.now(timezone.utc):
         return True
     else:

@@ -130,6 +130,11 @@ class SirenAPI:
     async def successful_exploit(self, round_id: int, problem_id: int, team_id: int):
         async with self.client.post(
             self.api_url + "/api/successful_exploit",
+            json={
+                "roundId": round_id,
+                "problemId": problem_id,
+                "teamId": team_id,
+            }
         ) as response:
             await check(response)
             return await response.json()

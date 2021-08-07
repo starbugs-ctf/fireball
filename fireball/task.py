@@ -101,7 +101,7 @@ class Task:
         else:
             await self.container.delete()
 
-        await self._fetch_status()
+        await self.fetch_status()
 
     async def fetch_status(self) -> None:
         try:

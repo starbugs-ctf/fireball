@@ -87,6 +87,7 @@ class Runtime:
                     exploit_name,
                     exploit.docker_image_hash,
                     self.problems[exploit.chal_name].id,
+                    exploit.enabled,
                 )
 
             self.current_round = await self.siren.get_current_round()
@@ -249,7 +250,10 @@ class Runtime:
                 continue
 
             new_exploit = await self.siren.create_exploit(
-                exploit_name, exploit.docker_image_hash, self.problems[chal_name].id
+                exploit_name,
+                exploit.docker_image_hash,
+                self.problems[chal_name].id,
+                exploit.enabled,
             )
             logger.debug(f"Created exploits: {new_exploit}")
 

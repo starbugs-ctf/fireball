@@ -61,7 +61,7 @@ class SirenAPI:
             return await response.json()
 
     async def create_exploit(
-        self, exploit_name: str, exploit_key: str, problem_id: int
+        self, exploit_name: str, exploit_key: str, problem_id: int, enabled: bool
     ):
         async with self.client.post(
             self.api_url + "/api/exploits",
@@ -69,6 +69,7 @@ class SirenAPI:
                 "name": exploit_name,
                 "key": exploit_key,
                 "problemId": problem_id,
+                "enabled": enabled,
             },
         ) as response:
             await check(response)

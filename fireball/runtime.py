@@ -211,7 +211,7 @@ class Runtime:
                 logger.debug("Recieved %s from siren", successful_exploit)
 
                 # Cancel the task if there is successful exploit
-                if successful_exploit["exists"] and task.exploit.chal_name != "ooows-p92021":
+                if successful_exploit["exists"] and task.exploit.chal_name != "ooows-ogx":
                     if successful_exploit["fromDuplicate"]:
                         # TODO: log warning
                         pass

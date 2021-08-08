@@ -59,9 +59,9 @@ async def extract_flag(container: DockerContainer) -> Optional[str]:
 
 async def get_logs(container: DockerContainer) -> Tuple[str, str]:
     stdout = await container.log(stdout=True)
-    stdout = "\n".join(stdout)
+    stdout = "".join(stdout)
     stderr = await container.log(stderr=True)
-    stderr = "\n".join(stderr)
+    stderr = "".join(stderr)
     return stdout, stderr
 
 
